@@ -4,6 +4,22 @@ Todas as mudanças notáveis nesta Skill são documentadas aqui.
 
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e a versão segue [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.2.1] — 2026-06-02
+
+### Removido
+
+- Ficheiro `LICENSE` (que continha o texto MIT).
+- Campo `"license": "MIT"` em `.claude-plugin/plugin.json`.
+- Campo `"license": "MIT"` em `.claude-plugin/marketplace.json`.
+- Badge `License: MIT` no header do README.
+- Entrada `LICENSE` na lista de ficheiros obrigatórios em `.github/workflows/ci.yml`.
+
+### Nota importante
+
+A licença MIT que constou nas versões `1.0.0` até `1.2.0` foi assumida pela configuração inicial e nunca foi confirmada pelo dono do projeto. **A partir de `1.2.1` o projeto não tem licença open source explícita** — todos os direitos reservados pelo autor por defeito.
+
+Quem fez fork ou clone das versões anteriores assumindo termos MIT deve confirmar diretamente com o autor antes de redistribuir, modificar ou usar comercialmente. Quem clonar a partir de `1.2.1` precisa de permissão explícita do autor para qualquer uso para além de utilização pessoal não-comercial.
+
 ## [1.2.0] — 2026-06-02
 
 Release de hardening para produção. Cinco frentes ao mesmo tempo: segurança, domain coverage, observabilidade, repo hygiene e DX.

@@ -9,7 +9,7 @@ Skill autônoma para integração PIX em projetos existentes utilizando a plataf
 
 ## Versão
 
-1.2.0
+1.2.1
 
 ## Escopo
 
