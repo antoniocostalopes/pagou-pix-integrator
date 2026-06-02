@@ -1,0 +1,127 @@
+# Prometheus alerting rules for Pagou PIX Integrator
+# Drop into your alertmanager rule files.
+#
+# Tune thresholds to your traffic profile. These are starting points
+# for a low-to-moderate volume integration (< 1k transactions/day).
+groups:
+  - name: pagou-pix-integrator
+    interval: 30s
+    rules:
+
+      # -------------------------------------------------------------------
+      # P0 — Webhook pipeline is broken
+      # -------------------------------------------------------------------
+      - alert: PagouWebhookErrorsHigh
+        expr: |
+          sum(rate(pagou_webhook_processing_errors_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          team: payments
+        annotations:
+          summary: "Pagou webhook processing errors >0 over 5m"
+          description: |
+            Webhooks are failing in the async job. Check logs for
+            'pagou.webhook.error'. Pending orders may not be released.
+          runbook: docs/runbooks/webhook-errors.md
+
+      - alert: PagouWebhookInvalidSignature
+        expr: |
+          increase(pagou_webhook_invalid_signature_total[10m]) > 5
+        for: 10m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Multiple invalid HMAC signatures on Pagou webhook"
+          description: |
+            Either someone is probing/attacking the webhook endpoint,
+            or PAGOU_WEBHOOK_SECRET drifted from the value registered
+            with Pagou. Rotate and re-sync.
+
+      - alert: PagouWebhookSilent
+        # No webhooks for 6h during business hours is suspicious in prod
+        expr: |
+          sum(increase(pagou_webhook_received_total[6h])) == 0
+          and ON() hour() > 8 and hour() < 22
+        for: 30m
+        labels:
+          severity: critical
+          team: payments
+        annotations:
+          summary: "Pagou webhook silent for 6h in business hours"
+          description: |
+            Either Pagou is broken, our public URL is unreachable,
+            or webhook registration in Pagou panel was removed.
+
+      # -------------------------------------------------------------------
+      # P1 — Latency / health
+      # -------------------------------------------------------------------
+      - alert: PagouWebhookAckSlow
+        expr: |
+          histogram_quantile(0.95, sum(rate(pagou_webhook_ack_duration_seconds_bucket[5m])) by (le)) > 3
+        for: 10m
+        labels:
+          severity: warning
+          team: payments
+        annotations:
+          summary: "Pagou webhook p95 ACK > 3s"
+          description: |
+            Handler is too slow. Pagou may time out and retry.
+            Move processing off the handler thread.
+
+      - alert: PagouCreateLatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum(rate(pagou_transaction_create_duration_seconds_bucket[5m])) by (le)) > 5
+        for: 10m
+        labels:
+          severity: warning
+          team: payments
+        annotations:
+          summary: "Pagou create-charge p95 > 5s"
+          description: |
+            POST /v2/transactions is slow. Check Pagou status page
+            and downstream connectivity.
+
+      - alert: PagouApiErrorRate
+        expr: |
+          sum(rate(pagou_api_request_errors_total[5m])) /
+          sum(rate(pagou_api_request_duration_seconds_count[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          team: payments
+        annotations:
+          summary: "Pagou API error rate > 5%"
+          description: |
+            More than 5% of calls to Pagou are returning errors.
+            Check Pagou status, our API key validity, and rate limits.
+
+      # -------------------------------------------------------------------
+      # P1 — Reconciliation drift
+      # -------------------------------------------------------------------
+      - alert: PagouPendingTransactionsHigh
+        expr: |
+          pagou_reconcile_pending_transactions > 20
+        for: 1h
+        labels:
+          severity: warning
+          team: payments
+        annotations:
+          summary: "20+ Pagou transactions stuck in pending for >1h"
+          description: |
+            Could be normal traffic, but could be reconciliation
+            broken. Verify the nightly reconcile job ran successfully.
+
+      - alert: PagouReconcileDrift
+        expr: |
+          increase(pagou_reconcile_drift_total[1h]) > 10
+        for: 30m
+        labels:
+          severity: warning
+          team: payments
+        annotations:
+          summary: "Reconciliation found >10 stale transactions in last 1h"
+          description: |
+            Many webhooks must have been missed. Investigate webhook
+            delivery health (Pagou panel + our handler logs).

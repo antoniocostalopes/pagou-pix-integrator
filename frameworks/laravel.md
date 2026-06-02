@@ -22,6 +22,7 @@
 
 ```bash
 PAGOU_API_KEY=
+PAGOU_WEBHOOK_SECRET=
 PAGOU_ENV=sandbox
 PAGOU_BASE_URL=
 APP_PUBLIC_URL=https://example.com
@@ -225,8 +226,99 @@ class PixService
     {
         return $this->client->get("/v2/transactions/{$transactionId}");
     }
+
+    public function cancel(string $transactionId): array
+    {
+        return $this->client->post("/v2/transactions/{$transactionId}/cancel", []);
+    }
+
+    public function refund(string $transactionId, ?int $amountCents = null, ?string $reason = null): array
+    {
+        $body = array_filter([
+            'amount' => $amountCents,
+            'reason' => $reason,
+        ], fn ($v) => $v !== null);
+
+        return $this->client->post("/v2/transactions/{$transactionId}/refund", $body);
+    }
 }
 ```
+
+## 7.1 Endpoints admin — cancel + refund
+
+`routes/api.php`:
+
+```php
+Route::middleware(['auth:sanctum', 'can:manage-payments'])->group(function () {
+    Route::post('/admin/pagou/transactions/{id}/cancel', [\App\Http\Controllers\PagouAdminController::class, 'cancel']);
+    Route::post('/admin/pagou/transactions/{id}/refund', [\App\Http\Controllers\PagouAdminController::class, 'refund']);
+});
+```
+
+`app/Http/Controllers/PagouAdminController.php`:
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\PagouPixTransaction;
+use App\Services\Pagou\PixService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+
+class PagouAdminController extends Controller
+{
+    public function __construct(private PixService $service) {}
+
+    public function cancel(string $id, Request $req)
+    {
+        try {
+            $resp = $this->service->cancel($id);
+            PagouPixTransaction::where('pagou_transaction_id', $id)
+                ->update(['status' => $resp['status'] ?? 'canceled']);
+
+            Log::info('pagou.cancel.requested', [
+                'transaction_id' => $id,
+                'admin_user_id'  => $req->user()->id,
+            ]);
+
+            return response()->json(['ok' => true, 'status' => $resp['status'] ?? null]);
+        } catch (\Throwable $e) {
+            Log::error('pagou.cancel.failed', ['transaction_id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['error' => 'cancel failed'], 502);
+        }
+    }
+
+    public function refund(string $id, Request $req)
+    {
+        $data = $req->validate([
+            'amount_cents' => 'nullable|integer|min:1',
+            'reason'       => 'nullable|string|max:255',
+        ]);
+
+        try {
+            $resp = $this->service->refund($id, $data['amount_cents'] ?? null, $data['reason'] ?? null);
+            PagouPixTransaction::where('pagou_transaction_id', $id)
+                ->update(['status' => $resp['status'] ?? 'refunded']);
+
+            Log::info('pagou.refund.requested', [
+                'transaction_id' => $id,
+                'admin_user_id'  => $req->user()->id,
+                'amount_cents'   => $data['amount_cents'] ?? null,
+                'reason'         => $data['reason'] ?? null,
+            ]);
+
+            return response()->json(['ok' => true, 'status' => $resp['status'] ?? null]);
+        } catch (\Throwable $e) {
+            Log::error('pagou.refund.failed', ['transaction_id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['error' => 'refund failed'], 502);
+        }
+    }
+}
+```
+
+> A confirmação real chega no webhook (`transaction.cancelled` / `.refunded` / `.partially_refunded`). O endpoint apenas dispara a ação e atualiza o status crú.
 
 `app/Models/PagouPixTransaction.php`:
 
@@ -338,7 +430,48 @@ class PagouPixController extends Controller
 }
 ```
 
-## 7. Webhook
+## 7. Webhook (com verificação HMAC)
+
+`app/Services/Pagou/Signature.php`:
+
+```php
+<?php
+
+namespace App\Services\Pagou;
+
+class Signature
+{
+    public static function verify(string $rawBody, ?string $header): bool
+    {
+        $secret = config('services.pagou.webhook_secret');
+
+        if (empty($secret)) {
+            if (config('services.pagou.env') === 'production') {
+                throw new \RuntimeException('PAGOU_WEBHOOK_SECRET is required in production');
+            }
+            \Log::warning('[pagou] PAGOU_WEBHOOK_SECRET not set — signature check skipped (dev only)');
+            return true;
+        }
+        if (empty($header)) return false;
+
+        $expected = hash_hmac('sha256', $rawBody, $secret);
+        $received = preg_replace('/^sha256=/', '', $header);
+
+        return hash_equals($expected, $received);
+    }
+}
+```
+
+Adicionar em `config/services.php`:
+
+```php
+'pagou' => [
+    'key'            => env('PAGOU_API_KEY'),
+    'webhook_secret' => env('PAGOU_WEBHOOK_SECRET'),
+    'env'            => env('PAGOU_ENV', 'sandbox'),
+    'base_url'       => env('PAGOU_BASE_URL'),
+],
+```
 
 `app/Http/Controllers/PagouWebhookController.php`:
 
@@ -349,13 +482,21 @@ namespace App\Http\Controllers;
 
 use App\Jobs\ProcessPagouEvent;
 use App\Models\PagouWebhookEvent;
+use App\Services\Pagou\Signature;
 use Illuminate\Http\Request;
 
 class PagouWebhookController extends Controller
 {
     public function handle(Request $req)
     {
-        $payload = $req->json()->all();
+        $rawBody = $req->getContent();
+        $signature = $req->header('X-Pagou-Signature');
+
+        if (! Signature::verify($rawBody, $signature)) {
+            return response()->json(['error' => 'invalid signature'], 401);
+        }
+
+        $payload = json_decode($rawBody, true) ?? [];
 
         if (($payload['event'] ?? null) !== 'transaction' || empty($payload['id'])) {
             return response()->json(['received' => true]);
@@ -466,7 +607,109 @@ test('maps paid', fn () => expect(StatusMap::toInternal('paid'))->toBe('pago'));
 test('handles unknown', fn () => expect(StatusMap::toInternal('alien'))->toBe('desconhecido'));
 ```
 
-## 9. Verificação
+## 9. Frontend
+
+### Blade component
+
+`resources/views/components/pagou-pix.blade.php`:
+
+```blade
+@props(['order'])
+
+<div x-data="pagouPix({{ $order->id }})">
+    <template x-if="state === 'idle'">
+        <button @click="start" class="btn btn-primary">Pagar com PIX</button>
+    </template>
+
+    <template x-if="state === 'creating'">
+        <p>A gerar QR Code…</p>
+    </template>
+
+    <template x-if="state === 'waiting'">
+        <div>
+            <h3>Pague com PIX</h3>
+            {{-- ⚠️ Base64 sem prefixo MIME — adicionar manualmente --}}
+            <img :src="'data:image/png;base64,' + qrCode" alt="PIX QR" style="width:280px">
+
+            <p>Ou copia o código:</p>
+            <textarea readonly x-text="pixCode" style="width:100%;height:80px"></textarea>
+            <button @click="copy" x-text="copied ? '✓ Copiado' : 'Copiar PIX'"></button>
+
+            <p>A verificar pagamento…</p>
+        </div>
+    </template>
+
+    <template x-if="state === 'paid'">
+        <p>✓ Pagamento confirmado!</p>
+    </template>
+
+    <template x-if="state === 'error'">
+        <p style="color:red" x-text="'Erro: ' + errorMessage"></p>
+    </template>
+</div>
+
+<script>
+function pagouPix(orderId) {
+    return {
+        state: 'idle',
+        qrCode: '',
+        pixCode: '',
+        copied: false,
+        errorMessage: '',
+        pollTimer: null,
+
+        async start() {
+            this.state = 'creating';
+            const res = await fetch('/api/pagou/pix', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content,
+                },
+                body: JSON.stringify({ order_id: orderId }),
+            });
+
+            if (!res.ok) {
+                this.state = 'error';
+                this.errorMessage = `HTTP ${res.status}`;
+                return;
+            }
+
+            const data = await res.json();
+            this.qrCode = data.pix_qr_code;
+            this.pixCode = data.pix_code;
+            this.state = 'waiting';
+
+            // Polling do estado interno do pedido (não da Pagou)
+            this.pollTimer = setInterval(async () => {
+                const r = await fetch(`/api/orders/${orderId}/status`);
+                const o = await r.json();
+                if (o.status === 'pago') {
+                    clearInterval(this.pollTimer);
+                    this.state = 'paid';
+                }
+            }, 3000);
+        },
+
+        copy() {
+            navigator.clipboard.writeText(this.pixCode);
+            this.copied = true;
+            setTimeout(() => { this.copied = false; }, 2000);
+        },
+    };
+}
+</script>
+```
+
+Usar numa view Blade:
+
+```blade
+<x-pagou-pix :order="$order" />
+```
+
+> Para projetos com Livewire, criar `App\Livewire\PagouPix` com a mesma lógica server-side em vez de Alpine. O polling fica em `wire:poll.3s="checkStatus"`.
+
+## 10. Verificação
 
 ```bash
 php artisan migrate

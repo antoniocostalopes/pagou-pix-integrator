@@ -4,6 +4,57 @@ Todas as mudanças notáveis nesta Skill são documentadas aqui.
 
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e a versão segue [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.2.0] — 2026-06-02
+
+Release de hardening para produção. Cinco frentes ao mesmo tempo: segurança, domain coverage, observabilidade, repo hygiene e DX.
+
+### Adicionado — Segurança
+
+- **Verificação HMAC-SHA256 do webhook.** Header `X-Pagou-Signature` validado contra `HMAC-SHA256(rawBody, PAGOU_WEBHOOK_SECRET)` com comparação em tempo constante. Em produção sem secret → boot falha (fail closed). Em dev sem secret → log warning + permitido (fail open). Documentado em `KNOWLEDGE.md` e implementado em `frameworks/nextjs.md`, `frameworks/laravel.md`, `frameworks/generic.md`. Variável `PAGOU_WEBHOOK_SECRET` adicionada aos `.env.example` dos adapters.
+- **Política de segurança** (`SECURITY.md`) com janela de resposta, escopo, e instruções para reportar vulnerabilidades via GitHub Security Advisories.
+
+### Adicionado — Funcionalidade
+
+- **Cancelamento de PIX pendente** (`POST /v2/transactions/{id}/cancel`). Endpoint admin em Next.js e Laravel. Pseudocódigo no adapter genérico.
+- **Estorno (refund) total e parcial** (`POST /v2/transactions/{id}/refund`). Endpoint admin com validação, auditoria via log, e nota explícita de que o status final espera pelo webhook `transaction.refunded` / `.partially_refunded`.
+- **Frontend snippets** em cada adapter:
+  - Next.js: hook `usePagouPix` + componente `PixCheckout` (React)
+  - Laravel: Blade component com Alpine.js
+  - Genérico: princípios universais e tabela de anti-padrões
+  - Todos incluem o prefixo `data:image/png;base64,` obrigatório no QR
+
+### Adicionado — Observabilidade
+
+- `docs/observability/metrics.md` — definição de 15 métricas Prometheus/OTel (cobrança, webhook, reconciliação, refund/cancel, saúde API) com snippets para Node.js, Laravel, Python, Go.
+- `docs/observability/prometheus-alerts.yml` — 8 regras de alerta prontas (webhook errors, invalid signatures, silence detection, latência, drift de reconciliação).
+- `docs/observability/grafana-dashboard.json` — dashboard com 9 painéis em 3 linhas (Cobrança · Webhooks · Reconciliação) pronto para importar.
+- `checklists/production.md` atualizado para referenciar estes assets como critérios.
+
+### Adicionado — Repo hygiene
+
+- `.github/workflows/ci.yml` — CI completo: validação de `plugin.json` e `marketplace.json`, version consistency entre 4 ficheiros, frontmatter YAML do `SKILL.md`, presença de ficheiros obrigatórios, markdownlint, link checker, JSON syntax, shell syntax.
+- `.markdownlint.json` — configuração mínima permitindo HTML inline e linhas longas.
+- `.github/ISSUE_TEMPLATE/bug_report.md`, `feature_request.md`, `adapter_request.md`.
+- `.github/PULL_REQUEST_TEMPLATE.md` com checklist dos princípios não-negociáveis.
+- `CONTRIBUTING.md` com setup, tipos de contribuição valorizados, SemVer policy.
+- `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1).
+
+### Adicionado — DX
+
+- `tools/pagou-mock/` — mock server stand-alone em Node 20 (zero deps externas) que implementa as 4 rotas v2 usadas pela Skill (`create`, `get`, `cancel`, `refund`) e dispara webhooks de volta com HMAC válido. Cenários por prefixo de `external_ref`: `expire-`, `refuse-`, `chargeback-`, `slow-`, `silent-`.
+- `tools/webhook-tester/` — script Bash que envia webhooks simulados com assinatura HMAC válida para o teu endpoint local. Útil para testar dedup e cenários compostos.
+
+### Alterado
+
+- `KNOWLEDGE.md` agora documenta cancel + refund endpoints, secção HMAC do webhook, e clarifica que estado final espera pelo webhook.
+- `prompts/webhook-integration.md` atualizado para incluir verificação HMAC como passo 0 do handler.
+- `checklists/webhook.md` — verificação HMAC promovida a critério crítico.
+- `checklists/security.md` — removido "HMAC do webhook" dos recomendados (agora é obrigatório).
+
+### Bump version
+
+`1.1.1` → `1.2.0` em `SKILL.md`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, README badge.
+
 ## [1.1.1] — 2026-06-02
 
 ### Alterado

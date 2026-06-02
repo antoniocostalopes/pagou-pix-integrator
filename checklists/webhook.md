@@ -4,6 +4,15 @@
 
 - [ ] **Endpoint público acessível.** `POST {{PUBLIC_URL}}/api/webhooks/pagou` retorna `200 { received: true }` com qualquer JSON válido — testado com `curl` real do exterior.
 
+- [ ] **Verificação HMAC da assinatura.**
+  - Header `X-Pagou-Signature` validado contra `HMAC-SHA256(rawBody, PAGOU_WEBHOOK_SECRET)`
+  - Comparação em **tempo constante** (`timingSafeEqual`, `hash_equals`, `secrets.compare_digest`)
+  - Assinatura inválida → resposta `401` + payload **não** persiste
+  - Em produção (`PAGOU_ENV=production`) sem `PAGOU_WEBHOOK_SECRET` → boot falha (fail closed)
+  - Em dev sem secret → log warning + permitido (fail open)
+  - Body cru usado no cálculo (não o JSON parseado)
+  - Teste: assinatura forjada → 401 + nada persistido
+
 - [ ] **Dedup por `event.id` (top-level).**
   - Tabela `pagou_webhook_events` com `event_id` UNIQUE
   - `INSERT ... ON CONFLICT DO NOTHING` (ou equivalente do banco)

@@ -1,0 +1,226 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Operational dashboard for Pagou PIX Integrator. Drop into Grafana, point to your Prometheus datasource.",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "datasource": null,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "panels": [],
+      "title": "Cobrança",
+      "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 1 },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "sum(rate(pagou_transactions_created_total[5m])) by (result)",
+          "legendFormat": "{{result}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Cobranças criadas /s",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 1 },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(pagou_transaction_create_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(pagou_transaction_create_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(pagou_transaction_create_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "title": "Latência criar cobrança",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 1 },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "sum(rate(pagou_api_request_errors_total[5m])) by (status_code)",
+          "legendFormat": "{{status_code}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Erros API Pagou /s",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "datasource": null,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "id": 101,
+      "panels": [],
+      "title": "Webhooks",
+      "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 10 },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "sum(rate(pagou_webhook_received_total[5m])) by (event_type)",
+          "legendFormat": "{{event_type}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Webhooks recebidos por tipo",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 10 },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(pagou_webhook_ack_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "ack p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(pagou_webhook_ack_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "ack p95",
+          "refId": "B"
+        }
+      ],
+      "title": "Webhook ACK latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 10 },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "sum(rate(pagou_webhook_invalid_signature_total[5m]))",
+          "legendFormat": "invalid sig",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(pagou_webhook_duplicate_total[5m]))",
+          "legendFormat": "duplicates",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(pagou_webhook_processing_errors_total[5m]))",
+          "legendFormat": "processing errors",
+          "refId": "C"
+        }
+      ],
+      "title": "Webhook health (sig/dup/err)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "datasource": null,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "id": 102,
+      "panels": [],
+      "title": "Reconciliação & operação",
+      "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 19 },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "pagou_reconcile_pending_transactions",
+          "legendFormat": "pendentes >1h",
+          "refId": "A"
+        }
+      ],
+      "title": "Transações pending (drift)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 19 },
+      "id": 8,
+      "targets": [
+        {
+          "expr": "sum(rate(pagou_reconcile_drift_total[1h])) by (from_status, to_status)",
+          "legendFormat": "{{from_status}} -> {{to_status}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Drift detetado em 1h (transições)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 19 },
+      "id": 9,
+      "targets": [
+        {
+          "expr": "sum(rate(pagou_refund_requests_total[5m])) by (result, type)",
+          "legendFormat": "refund {{type}} {{result}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(pagou_cancel_requests_total[5m])) by (result)",
+          "legendFormat": "cancel {{result}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Refunds & cancellations",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 30,
+  "style": "dark",
+  "tags": ["pagou", "pix", "payments"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "America/Sao_Paulo",
+  "title": "Pagou PIX Integrator",
+  "uid": "pagou-pix-integrator",
+  "version": 1
+}

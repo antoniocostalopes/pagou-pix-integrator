@@ -46,8 +46,6 @@
 
 - [ ] **Allowlist de IPs da Pagou no webhook** (se Pagou publicar range — verificar docs; se não publicar, deixar pendente).
 
-- [ ] **HMAC do webhook.** Se Pagou suportar header de assinatura, validar. Se não documentado, não inventar — deixar como follow-up.
-
 - [ ] **Backup/retention da `pagou_pix_transactions`.** Garantir que está no escopo do backup do projeto.
 
 ## Evidência mínima por item

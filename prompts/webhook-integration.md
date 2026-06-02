@@ -35,22 +35,27 @@ A Pagou envia:
 POST {public_url}/webhooks/pagou
 ```
 
-Sem auth de sessão. Idealmente protegido por allowlist de IP ou HMAC se Pagou expuser cabeçalho de assinatura (validar contra OpenAPI antes de codar — se não documentado, não inventar).
+Sem auth de sessão. Protegido por **verificação HMAC-SHA256** da assinatura no header `X-Pagou-Signature` (ver `KNOWLEDGE.md` → "Verificação de assinatura HMAC do webhook").
 
 ## Fluxo do handler
 
 ```
-1. Parse JSON do corpo
-2. Validar:
+0. Ler body cru (antes de parse) + header X-Pagou-Signature
+1. Verificar HMAC:
+   - Em prod sem PAGOU_WEBHOOK_SECRET → boot deve ter falhado (não chegamos aqui)
+   - Em dev sem secret → log warning + segue
+   - Secret presente + assinatura inválida/ausente → responder 401, parar
+2. Parse JSON do corpo
+3. Validar:
    - event === "transaction"
    - id (top-level) não vazio
    - data presente
    Se falhar QUALQUER → responder 200 { received: true } e parar
    (Pagou não deve re-enviar por validação que falhou no cliente)
-3. INSERT em pagou_webhook_events com event_id UNIQUE
+4. INSERT em pagou_webhook_events com event_id UNIQUE
    Se falhar por UNIQUE (dupla entrega) → responder 200 { received: true } e parar
-4. Enqueue job assíncrono (passa apenas event_id, não payload inteiro)
-5. Responder 200 { received: true } imediatamente
+5. Enqueue job assíncrono (passa apenas event_id, não payload inteiro)
+6. Responder 200 { received: true } imediatamente
 ```
 
 **Tempo total no handler: < 1 segundo no caso comum.**

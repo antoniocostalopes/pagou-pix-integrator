@@ -25,17 +25,19 @@
 
 ## Importantes
 
-- [ ] **Alertas configurados.**
-  - `pagou.webhook.error` > 0 em janela de 5 min
-  - `pagou_pix_transactions` em `pending` há mais de 24h
-  - Latência p95 de `POST /api/pagou/pix` > 3s
-  - 0 webhooks recebidos em 24h em horário comercial (sinal de webhook quebrado)
+- [ ] **Métricas Prometheus expostas.** Endpoint `/metrics` (ou equivalente) atrás de auth. Definições em [`docs/observability/metrics.md`](../docs/observability/metrics.md).
 
-- [ ] **Dashboard de observabilidade.** Painel com:
-  - Volume de cobranças criadas por hora
-  - Taxa de conversão (created → paid)
-  - Volume de webhooks recebidos
-  - Erros recentes
+- [ ] **Alertas configurados.** Importar regras de [`docs/observability/prometheus-alerts.yml`](../docs/observability/prometheus-alerts.yml). Alertas mínimos:
+  - `PagouWebhookErrorsHigh` — erros de processamento >0 por 5 min
+  - `PagouWebhookInvalidSignature` — >5 HMACs inválidos em 10 min (ataque ou rotação de secret)
+  - `PagouWebhookSilent` — 0 webhooks em 6h em horário comercial
+  - `PagouWebhookAckSlow` — p95 ACK > 3s
+  - `PagouCreateLatencyHigh` — p95 create > 5s
+  - `PagouApiErrorRate` — erros API > 5%
+  - `PagouPendingTransactionsHigh` — >20 pending há >1h
+  - `PagouReconcileDrift` — >10 drifts em 1h
+
+- [ ] **Dashboard Grafana importado.** Usar [`docs/observability/grafana-dashboard.json`](../docs/observability/grafana-dashboard.json) — 3 linhas (Cobrança · Webhooks · Reconciliação) com 9 painéis prontos.
 
 - [ ] **Job de reconciliação noturna ativo.** Cron rodando + log de última execução.
 

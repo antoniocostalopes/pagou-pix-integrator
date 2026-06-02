@@ -77,6 +77,61 @@ Authorization: Bearer <PAGOU_API_KEY>
 - `external_ref` — eco do enviado
 - `correlation_id` — útil para tracing
 
+## Cancelar transação PIX (PIX ainda pendente)
+
+```
+POST /v2/transactions/{id}/cancel
+Authorization: Bearer <PAGOU_API_KEY>
+```
+
+Cancela uma cobrança PIX que ainda **não foi paga**. Após cancelar, o cliente que tentar pagar o QR vai receber erro no banco.
+
+**Resposta esperada:** transação com `status: "canceled"` + eventual emissão de webhook `transaction.cancelled`.
+
+**Quando usar:**
+
+- Cliente desistiu do checkout
+- Pedido foi cancelado por outro motivo (stock, fraude detetada, etc.)
+- Pedido foi reaberto e criou-se nova cobrança (cancela a anterior)
+
+**Pré-condições:**
+
+- Status atual = `pending` — não funciona em `paid`/`expired`/`canceled`
+- Tentar cancelar em estado inválido → 4xx (tratar como no-op)
+
+## Estornar transação PIX (reverter pagamento)
+
+```
+POST /v2/transactions/{id}/refund
+Authorization: Bearer <PAGOU_API_KEY>
+Content-Type: application/json
+```
+
+```json
+{
+  "amount": 1500,
+  "reason": "Customer requested refund"
+}
+```
+
+- `amount` — em centavos. Se omitido ou igual ao total, estorno **total**. Se menor, **parcial** (cuidado: alguns provedores não permitem múltiplos parciais).
+- `reason` — opcional mas recomendado para auditoria.
+
+**Resposta esperada:** estorno registado + webhook `transaction.refunded` (ou `transaction.partially_refunded` em parcial) chega em breve.
+
+**Quando usar:**
+
+- Cliente pediu reembolso
+- Produto/serviço não pôde ser entregue
+- Decisão comercial (devolução de cortesia, ajuste de valor)
+
+**Pré-condições:**
+
+- Status atual = `paid` ou `partially_refunded` (para múltiplos parciais)
+- Janela de 90-180 dias após pagamento (verificar limites Pagou/Banco Central)
+
+> ⚠️ **Mesmo após chamar refund, espere o webhook** `transaction.refunded` para atualizar status interno. A chamada POST inicia o processo; o estorno bancário pode levar minutos a horas.
+
 ## Consultar transação (reconciliação)
 
 ```
@@ -158,6 +213,36 @@ O mapeamento real depende do domínio do projeto (perguntar ao usuário se houve
 - Pagamentos: `event === "transaction"` → ler `data.event_type`
 - Subscriptions: `event === "subscription"` → ler `data.event_type`
 - Transfers (payout): top-level `type` (sem campo `event`)
+
+### Verificação de assinatura HMAC do webhook
+
+A Pagou pode enviar uma **assinatura HMAC-SHA256** num header dedicado para confirmar autenticidade (consultar OpenAPI/painel mais recente para confirmar disponibilidade):
+
+```
+X-Pagou-Signature: <hex digest>
+```
+
+Cálculo no teu lado:
+
+```
+expected = HMAC-SHA256(raw_request_body, PAGOU_WEBHOOK_SECRET)
+ok       = constant_time_compare(expected, header)
+```
+
+**Regras críticas:**
+
+1. **Usar o body cru** — antes de qualquer parse JSON. Se reformatares, o hash muda.
+2. **Comparação em tempo constante** (`timingSafeEqual` em Node, `hash_equals` em PHP, `secrets.compare_digest` em Python). `==` vaza timing.
+3. **Falhar fechado** — assinatura inválida → `401`, não persiste o evento.
+4. **Fallback seguro em dev** — se `PAGOU_WEBHOOK_SECRET` não estiver definido, logar warning e permitir (não bloquear dev local). **Em produção** (`PAGOU_ENV=production` + secret ausente) → sair com erro no boot.
+
+**Env var nova:**
+
+```bash
+PAGOU_WEBHOOK_SECRET=               # secret HMAC obtido no painel Pagou ao registar o webhook
+```
+
+> Se a versão da API que estás a usar **não** suporta HMAC, deixar a verificação como placeholder configurável e mover para defesa por **allowlist de IP** se a Pagou publicar range. Documentar a decisão em `PAGOU_PIX_INTEGRATION_REPORT.md`.
 
 ### Resposta do webhook
 

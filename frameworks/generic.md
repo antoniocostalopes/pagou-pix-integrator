@@ -129,14 +129,50 @@ handler(req):
 
 ```
 POST /webhooks/pagou
-(sem auth de sessão; idealmente atrás de validação de IP/HMAC se Pagou suportar)
+(sem auth de sessão; protegido por verificação HMAC)
 ```
 
-Pseudocódigo (escolha que segue PRD — dedupe por `event.id` top-level):
+#### Verificação HMAC
+
+```pseudo
+verify_signature(raw_body, header_signature) -> bool
+  secret = env("PAGOU_WEBHOOK_SECRET")
+  if secret is empty:
+      if env("PAGOU_ENV") == "production":
+          raise "PAGOU_WEBHOOK_SECRET required in production"
+      log_warn("signature check skipped in dev")
+      return true
+  if header_signature is empty:
+      return false
+
+  expected = HMAC_SHA256(raw_body, secret).hex()
+  received = strip_prefix(header_signature, "sha256=")
+
+  return constant_time_compare(expected, received)
+```
+
+**Equivalentes por linguagem:**
+
+| Linguagem | HMAC | Comparação constante |
+|---|---|---|
+| Node | `crypto.createHmac('sha256',k).update(b).digest('hex')` | `crypto.timingSafeEqual(Buffer,Buffer)` |
+| PHP | `hash_hmac('sha256',b,k)` | `hash_equals(a,b)` |
+| Python | `hmac.new(k.encode(),b,'sha256').hexdigest()` | `hmac.compare_digest(a,b)` |
+| Ruby | `OpenSSL::HMAC.hexdigest('SHA256',k,b)` | `Rack::Utils.secure_compare(a,b)` |
+| Go | `hmac.New(sha256.New,k); h.Write(b); hex.EncodeToString(h.Sum(nil))` | `hmac.Equal([]byte(a),[]byte(b))` |
+| .NET | `new HMACSHA256(k).ComputeHash(b)` → hex | `CryptographicOperations.FixedTimeEquals(a,b)` |
+
+Pseudocódigo do handler (dedupe por `event.id` top-level):
 
 ```pseudo
 handler(req):
-    body = parse_json(req.body)
+    raw_body  = req.raw_body
+    signature = req.header("X-Pagou-Signature")
+
+    if not verify_signature(raw_body, signature):
+        return 401 { error: "invalid signature" }
+
+    body = parse_json(raw_body)
 
     if body.event != "transaction" or not body.id:
         return 200 { received: true }
@@ -199,6 +235,45 @@ reconcile(transaction_id):
         UPDATE orders SET status = "pago" WHERE id = resp.external_ref
 ```
 
+### Cancelar PIX pendente
+
+```pseudo
+cancel(transaction_id):
+    resp = pagou_request("POST", "/v2/transactions/" + transaction_id + "/cancel")
+    UPDATE pagou_pix_transactions SET status = resp.status WHERE pagou_transaction_id = transaction_id
+    # NÃO mover order para cancelado aqui — esperar webhook transaction.cancelled
+    audit_log("pagou.cancel.requested", { transaction_id, admin_user_id })
+    return resp
+```
+
+Expor como endpoint admin: `POST /admin/pagou/transactions/:id/cancel`, autenticado.
+
+### Refund (estorno)
+
+```pseudo
+refund(transaction_id, amount_cents?, reason?):
+    body = {}
+    if amount_cents:
+        body.amount = amount_cents
+    if reason:
+        body.reason = reason
+
+    resp = pagou_request("POST", "/v2/transactions/" + transaction_id + "/refund", body)
+    UPDATE pagou_pix_transactions SET status = resp.status WHERE pagou_transaction_id = transaction_id
+    # Estorno real confirma-se via webhook transaction.refunded
+    audit_log("pagou.refund.requested", { transaction_id, admin_user_id, amount_cents, reason })
+    return resp
+```
+
+Expor como endpoint admin: `POST /admin/pagou/transactions/:id/refund`, autenticado.
+
+| Cenário | Comportamento |
+|---|---|
+| `amount_cents` omitido | Estorno total |
+| `amount_cents` < total | Estorno parcial (cuidado: alguns provedores não permitem múltiplos parciais) |
+| Transação ainda pending | API rejeita — usar cancel em vez disso |
+| Após janela de 180 dias | API rejeita — fora do prazo |
+
 Agendar como job noturno ou expor endpoint admin `POST /admin/pagou/reconcile/:id`.
 
 ### Testes
@@ -221,6 +296,39 @@ Independente do stack:
 - Migração rastreável (versionada)
 - Testes executáveis com um comando único do projeto (`npm test`, `pytest`, `bundle exec rspec`, `go test ./...`, `dotnet test`)
 - Documentação operacional em `README_PAGOU_PIX.md`
+
+## Frontend — princípios universais
+
+Independente do stack, o frontend faz **exactamente** três coisas:
+
+1. **Chamar o teu backend** para criar a cobrança (`POST /api/pagou/pix`)
+2. **Renderizar o QR** retornado:
+
+   ```html
+   <!-- ⚠️ A Pagou devolve base64 SEM prefixo MIME. Sempre adicionar: -->
+   <img src="data:image/png;base64,{pix_qr_code}" />
+   ```
+
+3. **Fazer polling do estado INTERNO do pedido**, **NÃO** da API Pagou:
+
+   ```pseudo
+   setInterval(() => {
+       order = fetch("/api/orders/" + orderId + "/status")
+       if order.status == "pago":
+           clearInterval()
+           showSuccess()
+   }, 3000)
+   ```
+
+**Anti-padrões frequentes (rejeitar):**
+
+| ❌ Errado | ✓ Correto |
+|---|---|
+| `fetch("https://api.pagou.ai/...")` direto do browser | Browser nunca chama Pagou direto — só o backend |
+| `<img src="{base64}">` sem prefixo | `<img src="data:image/png;base64,{base64}">` |
+| Polling do `/v2/transactions/{id}` da Pagou | Polling do `/api/orders/{id}/status` interno |
+| Marcar UX como "pago" no `onSuccess` do POST inicial | Esperar status interno virar `pago` (webhook confirmou) |
+| Polling sem clear ao desmontar componente | Sempre limpar interval no unmount/cleanup |
 
 ## Estratégia de assíncrono por stack
 

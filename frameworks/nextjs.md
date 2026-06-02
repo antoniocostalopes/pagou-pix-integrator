@@ -31,6 +31,7 @@ Detecte qual está em uso pela existência de `app/` ou `pages/`. Se ambos, pref
 
 ```bash
 PAGOU_API_KEY=                      # secret — backend only
+PAGOU_WEBHOOK_SECRET=               # secret HMAC do webhook (do painel Pagou)
 PAGOU_ENV=sandbox                   # sandbox | production
 PAGOU_BASE_URL=                     # opcional; default por ambiente
 PUBLIC_APP_URL=https://example.com  # usada para registrar webhook
@@ -202,7 +203,91 @@ export async function getTransaction(id: string): Promise<PagouPixTransaction> {
     method: "GET",
   });
 }
+
+export async function cancelTransaction(id: string): Promise<PagouPixTransaction> {
+  return pagouFetch<PagouPixTransaction>(`/v2/transactions/${id}/cancel`, {
+    method: "POST",
+  });
+}
+
+export async function refundTransaction(
+  id: string,
+  opts: { amountCents?: number; reason?: string } = {},
+): Promise<PagouPixTransaction> {
+  return pagouFetch<PagouPixTransaction>(`/v2/transactions/${id}/refund`, {
+    method: "POST",
+    body: JSON.stringify({
+      ...(opts.amountCents !== undefined && { amount: opts.amountCents }),
+      ...(opts.reason && { reason: opts.reason }),
+    }),
+  });
+}
 ```
+
+## 8. Endpoints admin — cancel + refund
+
+`app/api/admin/pagou/transactions/[id]/cancel/route.ts`:
+
+```ts
+import { NextResponse } from "next/server";
+import { cancelTransaction } from "@/lib/pagou/pix";
+import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth"; // adapter ao auth do projeto
+
+export async function POST(_req: Request, { params }: { params: { id: string } }) {
+  await requireAdmin();
+
+  try {
+    const tx = await cancelTransaction(params.id);
+    await prisma.pagouPixTransaction.updateMany({
+      where: { pagouTransactionId: params.id },
+      data: { status: tx.status },
+    });
+    return NextResponse.json({ ok: true, status: tx.status });
+  } catch (e) {
+    console.error("[pagou/admin/cancel]", { id: params.id, message: (e as Error).message });
+    return NextResponse.json({ error: "cancel failed" }, { status: 502 });
+  }
+}
+```
+
+`app/api/admin/pagou/transactions/[id]/refund/route.ts`:
+
+```ts
+import { NextResponse } from "next/server";
+import { refundTransaction } from "@/lib/pagou/pix";
+import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth";
+
+export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const adminUser = await requireAdmin();
+  const body = (await req.json().catch(() => ({}))) as { amountCents?: number; reason?: string };
+
+  try {
+    const tx = await refundTransaction(params.id, body);
+
+    await prisma.pagouPixTransaction.updateMany({
+      where: { pagouTransactionId: params.id },
+      data: { status: tx.status },
+    });
+
+    // Auditoria
+    console.info("[pagou.refund.requested]", {
+      transaction_id: params.id,
+      admin_user_id: adminUser.id,
+      amount_cents: body.amountCents ?? null,
+      reason: body.reason ?? null,
+    });
+
+    return NextResponse.json({ ok: true, status: tx.status });
+  } catch (e) {
+    console.error("[pagou/admin/refund]", { id: params.id, message: (e as Error).message });
+    return NextResponse.json({ error: "refund failed" }, { status: 502 });
+  }
+}
+```
+
+> A confirmação real do refund chega pelo **webhook `transaction.refunded`** (ou `.partially_refunded`). O endpoint admin apenas dispara o estorno e atualiza o status crú; a libertação de valor / ajuste do pedido acontece quando o webhook chegar.
 
 ## 5. Status mapping
 
@@ -309,7 +394,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 ```
 
-## 7. Webhook
+## 7. Webhook (com verificação HMAC)
+
+`src/lib/pagou/signature.ts`:
+
+```ts
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+export function verifyPagouSignature(rawBody: string, headerSignature: string | null): boolean {
+  const secret = process.env.PAGOU_WEBHOOK_SECRET;
+  if (!secret) {
+    if (process.env.PAGOU_ENV === "production") {
+      throw new Error("PAGOU_WEBHOOK_SECRET is required in production");
+    }
+    console.warn("[pagou] PAGOU_WEBHOOK_SECRET not set — signature check skipped (dev only)");
+    return true;
+  }
+  if (!headerSignature) return false;
+
+  const expected = createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
+  const a = Buffer.from(expected, "hex");
+  const b = Buffer.from(headerSignature.replace(/^sha256=/, ""), "hex");
+  if (a.length !== b.length) return false;
+  try {
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+```
 
 `app/api/webhooks/pagou/route.ts`:
 
@@ -317,6 +430,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { mapStatus } from "@/lib/pagou/status";
+import { verifyPagouSignature } from "@/lib/pagou/signature";
 
 type PagouTransactionEvent = {
   id: string;
@@ -330,9 +444,16 @@ type PagouTransactionEvent = {
 };
 
 export async function POST(req: Request) {
+  const rawBody = await req.text();
+  const signature = req.headers.get("x-pagou-signature");
+
+  if (!verifyPagouSignature(rawBody, signature)) {
+    return NextResponse.json({ error: "invalid signature" }, { status: 401 });
+  }
+
   let payload: PagouTransactionEvent;
   try {
-    payload = (await req.json()) as PagouTransactionEvent;
+    payload = JSON.parse(rawBody) as PagouTransactionEvent;
   } catch {
     return NextResponse.json({ received: false }, { status: 400 });
   }
@@ -417,7 +538,130 @@ describe("webhook dedupe", () => {
 // POST /api/webhooks/pagou twice with same event_id and assert idempotent state
 ```
 
-## 9. Verificação
+## 9. Frontend
+
+### Hook React + componente
+
+`src/hooks/usePagouPix.ts`:
+
+```ts
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+export type PagouPixState =
+  | { status: "idle" }
+  | { status: "creating" }
+  | { status: "waiting"; qrCode: string; pixCode: string; transactionId: string }
+  | { status: "paid" }
+  | { status: "error"; message: string };
+
+export function usePagouPix(orderId: string | null) {
+  const [state, setState] = useState<PagouPixState>({ status: "idle" });
+  const pollRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (pollRef.current) window.clearInterval(pollRef.current);
+  }, []);
+
+  async function start() {
+    if (!orderId) return;
+    setState({ status: "creating" });
+
+    const res = await fetch("/api/pagou/pix", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId }),
+    });
+
+    if (!res.ok) {
+      setState({ status: "error", message: `HTTP ${res.status}` });
+      return;
+    }
+
+    const data = await res.json();
+    setState({
+      status: "waiting",
+      qrCode: data.pixQrCode,
+      pixCode: data.pixCode,
+      transactionId: data.transactionId,
+    });
+
+    // Polling do nosso BACKEND (não da Pagou) — o backend é atualizado por webhook
+    pollRef.current = window.setInterval(async () => {
+      const r = await fetch(`/api/orders/${orderId}/status`);
+      const o = await r.json();
+      if (o.status === "pago") {
+        if (pollRef.current) window.clearInterval(pollRef.current);
+        setState({ status: "paid" });
+      }
+    }, 3000);
+  }
+
+  return { state, start };
+}
+```
+
+`src/components/PixCheckout.tsx`:
+
+```tsx
+"use client";
+
+import { useState } from "react";
+import { usePagouPix } from "@/hooks/usePagouPix";
+
+export function PixCheckout({ orderId }: { orderId: string }) {
+  const { state, start } = usePagouPix(orderId);
+  const [copied, setCopied] = useState(false);
+
+  if (state.status === "idle") {
+    return <button onClick={start}>Pagar com PIX</button>;
+  }
+
+  if (state.status === "creating") {
+    return <p>A gerar QR Code…</p>;
+  }
+
+  if (state.status === "waiting") {
+    return (
+      <div>
+        <h3>Pague com PIX</h3>
+
+        {/* ⚠️ O QR Code base64 vem SEM prefixo MIME — adicionar manualmente */}
+        <img
+          src={`data:image/png;base64,${state.qrCode}`}
+          alt="PIX QR Code"
+          style={{ width: 280, height: 280 }}
+        />
+
+        <p>Ou copia o código abaixo:</p>
+        <textarea readOnly value={state.pixCode} style={{ width: "100%", height: 80 }} />
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(state.pixCode);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }}
+        >
+          {copied ? "✓ Copiado" : "Copiar PIX"}
+        </button>
+
+        <p>A verificar pagamento…</p>
+      </div>
+    );
+  }
+
+  if (state.status === "paid") {
+    return <p>✓ Pagamento confirmado!</p>;
+  }
+
+  return <p style={{ color: "red" }}>Erro: {state.message}</p>;
+}
+```
+
+> **Importante:** o polling no frontend é contra `/api/orders/:id/status` (estado **interno** do pedido), **nunca** contra a API da Pagou. O backend é atualizado pelo webhook — o frontend apenas consulta o resultado.
+
+## 10. Verificação
 
 ```bash
 npm run build
