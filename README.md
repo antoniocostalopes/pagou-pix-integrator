@@ -388,39 +388,11 @@ Em escopo: forjar webhooks, vazar segredos, bypass do Approval Gate, SQL injecti
 
 ---
 
-## 🤝 Contribuindo
-
-Contribuições são muito bem-vindas! Lê o [**`CONTRIBUTING.md`**](./CONTRIBUTING.md) e o [**`CODE_OF_CONDUCT.md`**](./CODE_OF_CONDUCT.md) antes de começar.
-
-Resumo:
-
-1. 🍴 Faz fork do repositório
-2. 🌿 Cria uma branch: `git checkout -b feat/minha-melhoria`
-3. ✏️ Faz as alterações respeitando os princípios em [`CLAUDE.md`](./CLAUDE.md)
-4. 📝 Atualiza [`CHANGELOG.md`](./CHANGELOG.md) e bumpa SemVer em `SKILL.md` / `plugin.json` / `marketplace.json` / badge do README
-5. 📨 Abre o PR usando o template — o checklist guia-te pelos princípios não-negociáveis
-
-### Áreas onde ajuda é especialmente bem-vinda
-
-- 🌐 Novos adapters de framework (Nuxt, SvelteKit, Symfony, Phoenix, Rails, Django, etc.)
-- 🧪 Mais cenários nos testes e2e (refund parcial em sequência, eventos fora de ordem)
-- 🌍 Tradução para outras línguas (atualmente PT-BR)
-- 🔌 Integração com endpoints adicionais da Pagou (subscriptions, transfers / Pix Out)
-- 📊 Variantes do dashboard Grafana (Datadog, New Relic, CloudWatch)
-
----
-
 ## 📅 Changelog
 
 Versão atual: **`1.2.0`** — release de hardening para produção (HMAC + refund/cancel + observabilidade + repo hygiene + DX).
 
 Histórico completo em [`CHANGELOG.md`](./CHANGELOG.md).
-
----
-
-## 📜 Licença
-
-[MIT](./LICENSE) © 2026 [antoniocostalopes](https://github.com/antoniocostalopes)
 
 ---
 
