@@ -1,6 +1,6 @@
 {
   "name": "pagou-pix-integrator",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Skill autônoma para Claude Code que integra PIX via Pagou.ai em projetos existentes (Next.js, Laravel, WordPress, WooCommerce, ou qualquer outro stack), com descoberta automática, aprovação humana, testes, validação e score técnico 0-100.",
   "author": {
     "name": "antoniocostalopes",

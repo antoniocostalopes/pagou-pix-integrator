@@ -4,6 +4,18 @@ Todas as mudanças notáveis nesta Skill são documentadas aqui.
 
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e a versão segue [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.1.1] — 2026-06-02
+
+### Alterado
+
+- **README.md** — Quick start agora destaca `git clone` como caminho recomendado (1 comando). O caminho `/plugin marketplace add` + `/plugin install` continua disponível como alternativa para quem prefere o sistema de plugins do Claude Code.
+- **README.md** — Secção de Instalação reorganizada: `git clone` como caminho principal (com subsecções de update, uninstall e variante symlink), `/plugin marketplace` como alternativa com lifecycle integrado.
+- **INSTALL.md** — Reescrito para refletir ambos os caminhos lado a lado, com tabela comparativa e troubleshooting para os dois.
+
+### Justificativa
+
+Após confirmar que ambos os caminhos funcionam de forma nativa no Claude Code (git clone para `~/.claude/skills/` é o mesmo mecanismo das skills built-in como `find-skills` e `oss-ai-compliance`), promovemos o caminho de 1 comando para uso pessoal. O caminho de 2 comandos via marketplace continua a ser o ideal para distribuição profissional com lifecycle (`enable`/`disable`/`update`).
+
 ## [1.1.0] — 2026-06-02
 
 ### Adicionado

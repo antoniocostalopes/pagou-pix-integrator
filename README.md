@@ -4,7 +4,7 @@
 
 ### Plugin para Claude Code que integra PIX via Pagou.ai em qualquer projeto existente — com descoberta automática, aprovação humana, testes, validação e score técnico.
 
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.1.1-blue.svg?style=for-the-badge)](./CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](./LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-D97706?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.com/claude-code)
 [![PT-BR](https://img.shields.io/badge/lang-PT--BR-009C3B?style=for-the-badge)](#)
@@ -23,18 +23,25 @@
 
 ## ⚡ Quick start
 
-Dentro do Claude Code, dois comandos:
+Um único comando no teu terminal:
 
-```text
-/plugin marketplace add antoniocostalopes/pagou-pix-integrator
-/plugin install pagou-pix-integrator@pagou-pix-integrator
+```bash
+# macOS / Linux / WSL
+git clone https://github.com/antoniocostalopes/pagou-pix-integrator.git ~/.claude/skills/pagou-pix-integrator
 ```
 
-Depois, em qualquer projeto:
+```powershell
+# Windows (PowerShell)
+git clone https://github.com/antoniocostalopes/pagou-pix-integrator.git "$env:USERPROFILE\.claude\skills\pagou-pix-integrator"
+```
+
+Reinicia o Claude Code e usa em qualquer projeto:
 
 ```text
 /pagou-pix-integrator
 ```
+
+> Preferes o sistema de plugins do Claude Code (com `enable/disable/update`)? Vê o [caminho alternativo](#caminho-alternativo--via-plugin-marketplace) abaixo.
 
 ---
 
@@ -105,38 +112,72 @@ A Skill segue um **fluxo imutável de 6 fases**. Nunca inverte a ordem.
 ### Pré-requisitos
 
 - [Claude Code CLI](https://claude.com/claude-code) instalado
+- Git no sistema (já vem com o Claude Code CLI)
 
-### Em dois comandos, dentro do Claude Code
+### Caminho recomendado — via `git clone` (1 comando)
+
+#### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/antoniocostalopes/pagou-pix-integrator.git "$env:USERPROFILE\.claude\skills\pagou-pix-integrator"
+```
+
+#### macOS / Linux / WSL
+
+```bash
+git clone https://github.com/antoniocostalopes/pagou-pix-integrator.git ~/.claude/skills/pagou-pix-integrator
+```
+
+Reinicia o Claude Code e a skill fica disponível. Funciona porque o Claude Code varre `~/.claude/skills/*/SKILL.md` no arranque — exactamente o mesmo mecanismo das skills built-in.
+
+#### Atualizar
+
+```bash
+git -C ~/.claude/skills/pagou-pix-integrator pull
+```
+
+#### Desinstalar
+
+```bash
+# Unix
+rm -rf ~/.claude/skills/pagou-pix-integrator
+
+# Windows
+Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\skills\pagou-pix-integrator"
+```
+
+<a id="caminho-alternativo--via-plugin-marketplace"></a>
+
+### Caminho alternativo — via `/plugin` marketplace
+
+Se preferes o sistema nativo de plugins do Claude Code (com `enable/disable/uninstall/update` integrados), em vez de gerir o folder à mão:
 
 ```text
 /plugin marketplace add antoniocostalopes/pagou-pix-integrator
 /plugin install pagou-pix-integrator@pagou-pix-integrator
 ```
 
-O primeiro comando registra este repositório como um marketplace local. O segundo instala o plugin a partir dele.
+São 2 comandos porque o sistema separa **fonte** (marketplace) de **consumo** (plugin) — o mesmo padrão usado pelo Figma e outros plugins oficiais. Útil quando vais distribuir a outras pessoas ou queres lifecycle integrado.
+
+| Operação | Comando |
+|---|---|
+| Listar | `/plugin` |
+| Atualizar | `/plugin marketplace update pagou-pix-integrator` + reinstall |
+| Desativar | `/plugin disable pagou-pix-integrator@pagou-pix-integrator` |
+| Desinstalar | `/plugin uninstall pagou-pix-integrator@pagou-pix-integrator` |
 
 ### Verificação
 
-Depois de instalar, lista os teus plugins:
+Depois de instalar (por qualquer caminho), reinicia o Claude Code e abre o menu:
 
 ```text
-/plugin
+/help
 ```
 
-Deves ver `pagou-pix-integrator` listado como **enabled**. A skill fica disponível em qualquer projeto que abrires com o Claude Code.
-
-### Atualizar
+Deves ver `pagou-pix-integrator` listada. Em qualquer projeto, invoca:
 
 ```text
-/plugin marketplace update pagou-pix-integrator
-/plugin install pagou-pix-integrator@pagou-pix-integrator
-```
-
-### Desinstalar
-
-```text
-/plugin uninstall pagou-pix-integrator@pagou-pix-integrator
-/plugin marketplace remove pagou-pix-integrator
+/pagou-pix-integrator
 ```
 
 📖 Detalhes adicionais e troubleshooting: veja [**INSTALL.md**](./INSTALL.md).

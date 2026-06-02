@@ -1,15 +1,91 @@
 # Instalação — Pagou PIX Integrator
 
-Este plugin é instalado pelo Claude Code através do sistema nativo de **marketplaces de plugins**. Sem scripts, sem cópia manual de pastas.
+Este projeto suporta **dois caminhos de instalação**, ambos nativos do Claude Code:
+
+| Caminho | Comandos | Quando usar |
+|---|---|---|
+| 🟢 **git clone** | 1 | Uso pessoal, setup rápido, desenvolvimento |
+| 🟣 **/plugin marketplace** | 2 | Distribuição profissional, lifecycle completo (`enable`/`disable`/`update`) |
 
 ## Pré-requisitos
 
 - [Claude Code CLI](https://claude.com/claude-code) instalado e funcionando
-- Acesso ao GitHub (a CLI usa o teu auth do `gh` ou um token Git padrão para clonar marketplaces)
+- Git no sistema
+- Acesso ao GitHub (a CLI usa o teu auth para clonar repos privados)
 
-## Instalação
+---
 
-Dentro do Claude Code, executa:
+## 🟢 Caminho recomendado — git clone
+
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/antoniocostalopes/pagou-pix-integrator.git "$env:USERPROFILE\.claude\skills\pagou-pix-integrator"
+```
+
+### macOS / Linux / WSL
+
+```bash
+git clone https://github.com/antoniocostalopes/pagou-pix-integrator.git ~/.claude/skills/pagou-pix-integrator
+```
+
+**Como funciona:** o Claude Code, ao arrancar, varre `~/.claude/skills/*/SKILL.md` e carrega qualquer skill que encontrar. O nosso repo tem `SKILL.md` no root com frontmatter YAML válido — o resto vem de borla.
+
+### Verificação
+
+Reinicia o Claude Code (fecha e abre a sessão), depois:
+
+```text
+/help
+```
+
+Deves ver `pagou-pix-integrator` na lista de skills disponíveis. Em qualquer projeto:
+
+```text
+/pagou-pix-integrator
+```
+
+### Atualizar
+
+```bash
+# Unix
+git -C ~/.claude/skills/pagou-pix-integrator pull
+
+# Windows
+git -C "$env:USERPROFILE\.claude\skills\pagou-pix-integrator" pull
+```
+
+### Desinstalar
+
+```bash
+# Unix
+rm -rf ~/.claude/skills/pagou-pix-integrator
+
+# Windows
+Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\skills\pagou-pix-integrator"
+```
+
+### Variante: symlink (para desenvolvimento)
+
+Se estás a editar a skill e queres que mudanças locais fiquem activas imediatamente:
+
+```powershell
+# Windows (requer Developer Mode ou Admin)
+New-Item -ItemType SymbolicLink `
+  -Path "$env:USERPROFILE\.claude\skills\pagou-pix-integrator" `
+  -Target "C:\caminho\para\teu\folder\pagou-pix-integrator"
+```
+
+```bash
+# Unix
+ln -s /caminho/para/teu/folder/pagou-pix-integrator ~/.claude/skills/pagou-pix-integrator
+```
+
+---
+
+## 🟣 Caminho alternativo — /plugin marketplace
+
+Dentro do Claude Code:
 
 ```text
 /plugin marketplace add antoniocostalopes/pagou-pix-integrator
@@ -25,85 +101,79 @@ Dentro do Claude Code, executa:
 
 A sintaxe é `nome-do-plugin@nome-do-marketplace`. Aqui ambos são `pagou-pix-integrator` porque este repo é um marketplace de um único plugin.
 
-## Verificação
+### Verificação
 
 ```text
 /plugin
 ```
 
-Procura `pagou-pix-integrator` na lista; o estado deve ser **enabled**. Em seguida, em qualquer projeto, podes invocar a skill por nome:
+Procura `pagou-pix-integrator`; o estado deve ser **enabled**.
 
-```text
-/pagou-pix-integrator
-```
-
-Ou simplesmente pedir em linguagem natural:
-
-> _"Integra PIX via Pagou.ai neste projeto."_
-
-O Claude reconhece o intent e carrega a skill automaticamente.
-
-## Atualizar
-
-Quando uma nova versão for publicada no repo:
+### Atualizar
 
 ```text
 /plugin marketplace update pagou-pix-integrator
 /plugin install pagou-pix-integrator@pagou-pix-integrator
 ```
 
-O `marketplace update` faz `git pull` no marketplace; o `install` reinstala o plugin com a versão nova.
+### Desativar (mantém instalada)
 
-## Desinstalar
+```text
+/plugin disable pagou-pix-integrator@pagou-pix-integrator
+```
+
+### Desinstalar
 
 ```text
 /plugin uninstall pagou-pix-integrator@pagou-pix-integrator
 /plugin marketplace remove pagou-pix-integrator
 ```
 
-O primeiro remove o plugin instalado. O segundo remove o marketplace local.
-
-## Instalação por projeto vs. global
-
-O sistema de plugins do Claude Code suporta scopes diferentes. Por padrão a instalação é **user-level** (global) — o plugin fica disponível em qualquer projeto.
-
-Para instalar apenas num projeto específico, ver a documentação oficial do `/plugin` sobre scopes (`--scope project`).
+---
 
 ## Repositório privado
 
-Se este repo estiver privado, o teu CLI precisa estar autenticado no GitHub para conseguir cloná-lo:
+Se este repo estiver privado, o teu CLI precisa estar autenticado no GitHub para conseguir cloná-lo. Em qualquer dos dois caminhos:
 
 ```bash
 gh auth login
 ```
 
-Depois disso, o `/plugin marketplace add` consegue aceder.
+Depois disso, ambos `git clone` e `/plugin marketplace add` conseguem aceder.
+
+---
 
 ## Troubleshooting
 
-### `marketplace add` falha com erro de autenticação
+### A skill não aparece após instalação
 
-Confirma que estás autenticado:
+1. Confirma que o folder existe: `dir "$env:USERPROFILE\.claude\skills\pagou-pix-integrator"` (Windows) ou `ls ~/.claude/skills/pagou-pix-integrator` (Unix)
+2. Confirma que `SKILL.md` está no root e começa com `---`
+3. Reinicia o Claude Code (fecha e abre o terminal)
+4. Em sessão nova: `/help` — a skill deve aparecer
+
+### `git clone` falha com "authentication required"
+
+Se o repo for privado, autentica o `gh`:
 
 ```bash
 gh auth status
+gh auth login   # se não estiveres autenticado
 ```
 
-Se não estiveres, autentica-te:
+### `/plugin marketplace add` falha
+
+Confirma que estás autenticado e que o repo existe:
 
 ```bash
-gh auth login
+gh repo view antoniocostalopes/pagou-pix-integrator
 ```
 
-### A skill não aparece como invocável após instalação
-
-1. Confirma na listagem: `/plugin` → o estado de `pagou-pix-integrator` é **enabled**?
-2. Se aparecer **disabled**, ativa: `/plugin enable pagou-pix-integrator@pagou-pix-integrator`
-3. Reinicia o Claude Code (fecha e abre o terminal)
+Se for `404`, ou o repo está privado e tu não tens acesso, ou o nome está errado.
 
 ### "Plugin não encontrado" no `/plugin install`
 
-Confirma o nome exacto do plugin no marketplace:
+Confirma o nome exato do plugin no marketplace:
 
 ```text
 /plugin marketplace list
@@ -111,26 +181,23 @@ Confirma o nome exacto do plugin no marketplace:
 
 A sintaxe é sensível: `nome-do-plugin@nome-do-marketplace`. Para este projeto: `pagou-pix-integrator@pagou-pix-integrator`.
 
-### Versão antiga mesmo após atualizar
+### Versão antiga mesmo após `git pull`
 
-Força a reinstalação:
+Reinicia o Claude Code — a skill é lida no arranque, mudanças só são apanhadas em sessão nova.
 
-```text
-/plugin uninstall pagou-pix-integrator@pagou-pix-integrator
-/plugin marketplace update pagou-pix-integrator
-/plugin install pagou-pix-integrator@pagou-pix-integrator
-```
+---
 
 ## Como o plugin se estrutura no disco
 
-Após instalado, o plugin vive em:
-
-| Sistema | Caminho |
+| Caminho | Localização |
 |---|---|
-| macOS / Linux | `~/.claude/plugins/pagou-pix-integrator/` |
-| Windows | `%USERPROFILE%\.claude\plugins\pagou-pix-integrator\` |
+| git clone (skill) | `~/.claude/skills/pagou-pix-integrator/` |
+| /plugin (Unix) | `~/.claude/plugins/marketplaces/pagou-pix-integrator/` |
+| /plugin (Windows) | `%USERPROFILE%\.claude\plugins\marketplaces\pagou-pix-integrator\` |
 
-Nunca precisas de tocar nesses ficheiros manualmente — a CLI gere tudo.
+No caminho `/plugin`, a CLI também regista o plugin em `~/.claude/settings.json` na chave `enabledPlugins`.
+
+---
 
 ## Onde o plugin atua
 
