@@ -1,0 +1,37 @@
+# Ambiente local
+.env
+.env.local
+.env.*.local
+
+# Segredos
+*.key
+*.pem
+secrets/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Node (se a skill for desenvolvida com tooling Node)
+node_modules/
+dist/
+.cache/
+
+# Python (se houver ferramentas Python aqui)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Workspace local (instâncias dos checklists preenchidos)
+.workspace/
+*.checklist.local.md
