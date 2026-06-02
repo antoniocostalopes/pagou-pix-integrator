@@ -2,11 +2,11 @@
 
 # 💸 Pagou PIX Integrator
 
-### Skill autônoma para Claude Code que integra PIX via Pagou.ai em qualquer projeto existente — com descoberta automática, aprovação humana, testes, validação e score técnico.
+### Plugin para Claude Code que integra PIX via Pagou.ai em qualquer projeto existente — com descoberta automática, aprovação humana, testes, validação e score técnico.
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg?style=for-the-badge)](./CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](./LICENSE)
-[![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-D97706?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.com/claude-code)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-D97706?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.com/claude-code)
 [![PT-BR](https://img.shields.io/badge/lang-PT--BR-009C3B?style=for-the-badge)](#)
 
 [![Next.js](https://img.shields.io/badge/Next.js-000?style=flat&logo=nextdotjs&logoColor=white)](./frameworks/nextjs.md)
@@ -21,9 +21,26 @@
 
 ---
 
+## ⚡ Quick start
+
+Dentro do Claude Code, dois comandos:
+
+```text
+/plugin marketplace add antoniocostalopes/pagou-pix-integrator
+/plugin install pagou-pix-integrator@pagou-pix-integrator
+```
+
+Depois, em qualquer projeto:
+
+```text
+/pagou-pix-integrator
+```
+
+---
+
 ## 🎯 O que é
 
-**Pagou PIX Integrator** é uma [Skill do Claude Code](https://claude.com/claude-code) que **analisa o seu projeto existente** e implementa uma integração PIX completa via [Pagou.ai](https://developer.pagou.ai), seguindo boas práticas de arquitetura, segurança e auditoria.
+**Pagou PIX Integrator** é um [plugin do Claude Code](https://claude.com/claude-code) (distribuído via marketplace nativo) que **analisa o seu projeto existente** e implementa uma integração PIX completa via [Pagou.ai](https://developer.pagou.ai), seguindo boas práticas de arquitetura, segurança e auditoria.
 
 Em vez de você ler documentação, copiar snippets, adaptar para o seu stack e torcer para não esquecer nada — você invoca a Skill, ela descobre o projeto, propõe um plano, você aprova, e ela entrega:
 
