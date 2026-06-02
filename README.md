@@ -53,10 +53,13 @@ Em vez de você ler documentação, copiar snippets, adaptar para o seu stack e 
 
 - ✅ **Cliente HTTP autenticado** para a API Pagou v2
 - ✅ **Endpoint público** de criação de cobrança PIX
-- ✅ **Webhook handler** com deduplicação por `event.id` e ACK rápido
+- ✅ **Webhook handler** com **verificação HMAC-SHA256**, deduplicação por `event.id`, e ACK rápido
+- ✅ **Endpoints admin** para **cancelar PIX pendente** e **estornar (refund total/parcial)**
 - ✅ **Migrations** para `pagou_pix_transactions` e `pagou_webhook_events`
 - ✅ **Serviço de reconciliação** via `GET /v2/transactions/:id`
+- ✅ **Frontend snippets** prontos (React hook + Blade component) com prefixo `data:image/png;base64,` no QR
 - ✅ **Testes** (unit, integration, webhook, e2e)
+- ✅ **Observabilidade** — 15 métricas, 8 alertas Prometheus, dashboard Grafana com 9 painéis
 - ✅ **5 relatórios obrigatórios** (plano, relatório, score, README operacional, testes)
 - ✅ **Score técnico 0–100** com classificação
 
@@ -69,10 +72,15 @@ Em vez de você ler documentação, copiar snippets, adaptar para o seu stack e 
 | 🔍 **Descoberta automática** | Analisa `package.json`, `composer.json`, `wp-config.php`, ORM, rotas, auth, fluxo de checkout — **sem perguntar** |
 | 🤝 **Human Approval Gate** | Antes de modificar qualquer arquivo, apresenta plano explícito com lista de mudanças |
 | ❓ **Só 4 perguntas** | API key, ambiente, URL pública, status internos — tudo o resto é inferido |
+| 🔐 **HMAC nos webhooks** | Validação `HMAC-SHA256` do header `X-Pagou-Signature` com comparação em tempo constante; fail-closed em prod |
 | 🛡️ **Segurança built-in** | API key apenas backend, valores em centavos, sem segredos em logs ou commits |
 | 🔁 **Idempotência tripla** | Upsert por `external_ref`, UNIQUE em `event_id`, no-regress em status terminais |
 | ⚡ **Webhook resiliente** | ACK em < 1s, processamento assíncrono em fila, dedup por id de evento |
+| 💸 **Cancel + Refund** | Endpoints admin para cancelar PIX pendente e estornar pagamento (total ou parcial) |
 | 🩹 **Reconciliação** | Job noturno + endpoint admin que recupera estado via GET |
+| 🎨 **Frontend pronto** | React hook + componente, Blade component, padrão universal — todos com prefixo MIME correcto no QR base64 |
+| 📈 **Observabilidade** | 15 métricas Prometheus/OTel, 8 alert rules, dashboard Grafana pré-configurado |
+| 🧪 **Mock + tester locais** | Servidor mock da API Pagou + script de webhook tester com HMAC válido (em `tools/`) |
 | 📊 **Score determinístico** | 6 categorias com pesos fixos, total 0–100 com classificação |
 | 🌐 **5 stacks suportados** | Next.js, Laravel, WordPress, WooCommerce, + adapter genérico |
 | 📝 **PT-BR** | Toda a documentação e relatórios em português brasileiro |
@@ -348,6 +356,17 @@ Diagramas detalhados em [`docs/architecture.md`](./docs/architecture.md), [`docs
 - [`docs/webhook-flow.md`](./docs/webhook-flow.md) — handler, job, idempotência
 - [`docs/scoring-engine.md`](./docs/scoring-engine.md) — algoritmo determinístico do score
 
+### 📈 Observabilidade
+
+- [`docs/observability/metrics.md`](./docs/observability/metrics.md) — definição de 15 métricas Prometheus/OTel com snippets por linguagem
+- [`docs/observability/prometheus-alerts.yml`](./docs/observability/prometheus-alerts.yml) — 8 regras de alerta production-ready
+- [`docs/observability/grafana-dashboard.json`](./docs/observability/grafana-dashboard.json) — dashboard com 9 painéis em 3 linhas, importável directamente
+
+### 🧪 Ferramentas para desenvolvimento
+
+- [`tools/pagou-mock/`](./tools/pagou-mock/) — servidor que simula a API v2 da Pagou localmente (zero dependências, Node 20+). Cenários por prefixo de `external_ref` (`expire-`, `refuse-`, `chargeback-`, `slow-`, `silent-`)
+- [`tools/webhook-tester/`](./tools/webhook-tester/) — script Bash que envia eventos com HMAC válido para o teu webhook local, para testar dedup e fluxos compostos
+
 ---
 
 ## 🔗 Referências externas
@@ -362,16 +381,23 @@ Diagramas detalhados em [`docs/architecture.md`](./docs/architecture.md), [`docs
 
 ---
 
+## 🔒 Segurança
+
+Encontraste uma vulnerabilidade? **Não abras issue pública.** Reporta de forma responsável via [GitHub Security Advisories](https://github.com/antoniocostalopes/pagou-pix-integrator/security/advisories/new) ou conforme descrito em [**SECURITY.md**](./SECURITY.md). Vemos cada reporte dentro de 48h.
+
+---
+
 ## 🤝 Contribuindo
 
-Contribuições são muito bem-vindas! Antes de abrir um PR:
+Contribuições são muito bem-vindas! Lê o [**CONTRIBUTING.md**](./CONTRIBUTING.md) e o [**CODE_OF_CONDUCT.md**](./CODE_OF_CONDUCT.md) antes de começar.
+
+Resumo:
 
 1. 🍴 Faça um fork do repositório
 2. 🌿 Crie uma branch: `git checkout -b feat/minha-melhoria`
 3. ✏️ Faça as alterações respeitando os princípios em [`CLAUDE.md`](./CLAUDE.md)
-4. 🧪 Se tocou em código de adapter, valide a sintaxe (PowerShell, Bash)
-5. 📝 Atualize [`CHANGELOG.md`](./CHANGELOG.md)
-6. 📨 Abra o PR descrevendo o **porquê** (não apenas o quê)
+4. 📝 Atualize [`CHANGELOG.md`](./CHANGELOG.md) e bump SemVer em `SKILL.md` / `plugin.json` / `marketplace.json` / badge do README
+5. 📨 Abra o PR usando o template — o checklist guia-te pelos princípios
 
 ### Áreas onde ajuda é especialmente bem-vinda
 
