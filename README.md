@@ -23,7 +23,7 @@
 
 ## ⚡ Quick start
 
-Um único comando no teu terminal:
+Um único comando no terminal:
 
 ```bash
 # macOS / Linux / WSL
@@ -35,33 +35,33 @@ git clone https://github.com/antoniocostalopes/pagou-pix-integrator.git ~/.claud
 git clone https://github.com/antoniocostalopes/pagou-pix-integrator.git "$env:USERPROFILE\.claude\skills\pagou-pix-integrator"
 ```
 
-Reinicia o Claude Code e usa em qualquer projeto:
+Reinicia o Claude Code, depois em qualquer projeto:
 
 ```text
 /pagou-pix-integrator
 ```
 
-> Preferes o sistema de plugins do Claude Code (com `enable/disable/update`)? Vê o [caminho alternativo](#caminho-alternativo--via-plugin-marketplace) abaixo.
+> 💡 Preferes o sistema nativo de plugins (com `enable`/`disable`/`update` via `/plugin`)? Vê o [caminho alternativo](#caminho-alternativo--via-plugin-marketplace).
 
 ---
 
 ## 🎯 O que é
 
-**Pagou PIX Integrator** é um [plugin do Claude Code](https://claude.com/claude-code) (distribuído via marketplace nativo) que **analisa o seu projeto existente** e implementa uma integração PIX completa via [Pagou.ai](https://developer.pagou.ai), seguindo boas práticas de arquitetura, segurança e auditoria.
+**Pagou PIX Integrator** é um [plugin do Claude Code](https://claude.com/claude-code) que **analisa o seu projeto existente** e implementa uma integração PIX completa via [Pagou.ai](https://developer.pagou.ai), seguindo boas práticas de arquitetura, segurança e auditoria.
 
-Em vez de você ler documentação, copiar snippets, adaptar para o seu stack e torcer para não esquecer nada — você invoca a Skill, ela descobre o projeto, propõe um plano, você aprova, e ela entrega:
+Em vez de leres documentação, copiares snippets e adaptares para o teu stack, invocas a Skill: ela descobre o projeto, propõe um plano, esperas pela tua aprovação, e ela entrega:
 
 - ✅ **Cliente HTTP autenticado** para a API Pagou v2
 - ✅ **Endpoint público** de criação de cobrança PIX
-- ✅ **Webhook handler** com **verificação HMAC-SHA256**, deduplicação por `event.id`, e ACK rápido
-- ✅ **Endpoints admin** para **cancelar PIX pendente** e **estornar (refund total/parcial)**
-- ✅ **Migrations** para `pagou_pix_transactions` e `pagou_webhook_events`
-- ✅ **Serviço de reconciliação** via `GET /v2/transactions/:id`
-- ✅ **Frontend snippets** prontos (React hook + Blade component) com prefixo `data:image/png;base64,` no QR
-- ✅ **Testes** (unit, integration, webhook, e2e)
-- ✅ **Observabilidade** — 15 métricas, 8 alertas Prometheus, dashboard Grafana com 9 painéis
-- ✅ **5 relatórios obrigatórios** (plano, relatório, score, README operacional, testes)
-- ✅ **Score técnico 0–100** com classificação
+- ✅ **Webhook handler** com **verificação HMAC-SHA256**, deduplicação por `event.id` e ACK rápido
+- ✅ **Endpoints admin** para **cancelar PIX pendente** e **estornar** (total ou parcial)
+- ✅ **Migrations** para `pagou_pix_transactions` e `pagou_webhook_events` com constraints UNIQUE
+- ✅ **Serviço de reconciliação** via `GET /v2/transactions/:id` com job noturno e endpoint admin
+- ✅ **Frontend snippets** (React hook + componente, Blade + Alpine, padrão universal) com prefixo `data:image/png;base64,` correto no QR
+- ✅ **Testes** unit + integration + webhook + e2e
+- ✅ **Observabilidade** — 15 métricas Prometheus/OTel, 8 alert rules, dashboard Grafana
+- ✅ **5 relatórios obrigatórios** (PLAN antes, REPORT/SCORE/README/TEST depois)
+- ✅ **Score técnico 0–100** com classificação determinística
 
 ---
 
@@ -72,13 +72,13 @@ Em vez de você ler documentação, copiar snippets, adaptar para o seu stack e 
 | 🔍 **Descoberta automática** | Analisa `package.json`, `composer.json`, `wp-config.php`, ORM, rotas, auth, fluxo de checkout — **sem perguntar** |
 | 🤝 **Human Approval Gate** | Antes de modificar qualquer arquivo, apresenta plano explícito com lista de mudanças |
 | ❓ **Só 4 perguntas** | API key, ambiente, URL pública, status internos — tudo o resto é inferido |
-| 🔐 **HMAC nos webhooks** | Validação `HMAC-SHA256` do header `X-Pagou-Signature` com comparação em tempo constante; fail-closed em prod |
+| 🔐 **HMAC nos webhooks** | `HMAC-SHA256` no header `X-Pagou-Signature` com comparação em tempo constante; fail-closed em produção |
 | 🛡️ **Segurança built-in** | API key apenas backend, valores em centavos, sem segredos em logs ou commits |
 | 🔁 **Idempotência tripla** | Upsert por `external_ref`, UNIQUE em `event_id`, no-regress em status terminais |
 | ⚡ **Webhook resiliente** | ACK em < 1s, processamento assíncrono em fila, dedup por id de evento |
-| 💸 **Cancel + Refund** | Endpoints admin para cancelar PIX pendente e estornar pagamento (total ou parcial) |
+| 💸 **Cancel + Refund** | Endpoints admin para cancelar PIX pendente e estornar (total ou parcial) |
 | 🩹 **Reconciliação** | Job noturno + endpoint admin que recupera estado via GET |
-| 🎨 **Frontend pronto** | React hook + componente, Blade component, padrão universal — todos com prefixo MIME correcto no QR base64 |
+| 🎨 **Frontend pronto** | React hook + componente, Blade component, padrão universal — todos com prefixo MIME no QR |
 | 📈 **Observabilidade** | 15 métricas Prometheus/OTel, 8 alert rules, dashboard Grafana pré-configurado |
 | 🧪 **Mock + tester locais** | Servidor mock da API Pagou + script de webhook tester com HMAC válido (em `tools/`) |
 | 📊 **Score determinístico** | 6 categorias com pesos fixos, total 0–100 com classificação |
@@ -94,7 +94,7 @@ A Skill segue um **fluxo imutável de 6 fases**. Nunca inverte a ordem.
 ```
 ┌───────────────┐    ┌───────────────┐    ┌───────────────┐
 │ 1. Descobrir  │───►│ 2. Confirmar  │───►│ 3. Implementar│
-│   (silencioso)│    │ Human Approval│    │ (código real) │
+│ (silencioso)  │    │ Human Approval│    │ (código real) │
 └───────────────┘    └───────────────┘    └───────────────┘
                                                   │
                                                   ▼
@@ -106,10 +106,10 @@ A Skill segue um **fluxo imutável de 6 fases**. Nunca inverte a ordem.
 
 | Fase | O que acontece | Sai com |
 |---|---|---|
-| 1️⃣ **Descobrir** | Lê manifestos, rotas, models, migrations, auth, fluxo de checkout existente | ≥ 90% do contexto, só faltam os 4 perguntáveis |
-| 2️⃣ **Confirmar** | Gera `PAGOU_PIX_INTEGRATION_PLAN.md` com lista exata de arquivos a criar/modificar, DDL, endpoints | Aprovação explícita do usuário |
-| 3️⃣ **Implementar** | Aplica o adapter do framework — cliente, serviço, endpoint, webhook, persistência | Código pronto a rodar |
-| 4️⃣ **Testar** | Gera e executa unit + integration + webhook + e2e | 100% verdes |
+| 1️⃣ **Descobrir** | Lê manifestos, rotas, models, migrations, auth, fluxo de checkout existente | ≥ 90% do contexto; só faltam os 4 perguntáveis |
+| 2️⃣ **Confirmar** | Gera `PAGOU_PIX_INTEGRATION_PLAN.md` com lista exata de arquivos a criar/modificar, DDL, endpoints | Aprovação explícita do utilizador |
+| 3️⃣ **Implementar** | Aplica o adapter do framework — cliente, serviço, endpoints (criar / cancel / refund / webhook), persistência, frontend | Código pronto a rodar |
+| 4️⃣ **Testar** | Gera e executa unit + integration + webhook + e2e (incluindo HMAC e refund) | 100% verdes |
 | 5️⃣ **Validar** | Percorre 5 checklists com evidência por item | Todos os críticos ✓ |
 | 6️⃣ **Pontuar** | Calcula score 0–100 e gera relatório final | Classificação |
 
@@ -120,9 +120,9 @@ A Skill segue um **fluxo imutável de 6 fases**. Nunca inverte a ordem.
 ### Pré-requisitos
 
 - [Claude Code CLI](https://claude.com/claude-code) instalado
-- Git no sistema (já vem com o Claude Code CLI)
+- Git no sistema
 
-### Caminho recomendado — via `git clone` (1 comando)
+### Caminho recomendado — `git clone` (1 comando)
 
 #### Windows (PowerShell)
 
@@ -136,7 +136,7 @@ git clone https://github.com/antoniocostalopes/pagou-pix-integrator.git "$env:US
 git clone https://github.com/antoniocostalopes/pagou-pix-integrator.git ~/.claude/skills/pagou-pix-integrator
 ```
 
-Reinicia o Claude Code e a skill fica disponível. Funciona porque o Claude Code varre `~/.claude/skills/*/SKILL.md` no arranque — exactamente o mesmo mecanismo das skills built-in.
+Reinicia o Claude Code. A skill fica disponível em qualquer projeto. O Claude Code varre `~/.claude/skills/*/SKILL.md` no arranque — o nosso repo tem `SKILL.md` no root com frontmatter YAML válido.
 
 #### Atualizar
 
@@ -156,78 +156,119 @@ Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\skills\pagou-pix-integrato
 
 <a id="caminho-alternativo--via-plugin-marketplace"></a>
 
-### Caminho alternativo — via `/plugin` marketplace
+### Caminho alternativo — via `/plugin marketplace`
 
-Se preferes o sistema nativo de plugins do Claude Code (com `enable/disable/uninstall/update` integrados), em vez de gerir o folder à mão:
+Se preferes o sistema nativo de plugins do Claude Code (com `enable/disable/uninstall/update` integrados):
 
 ```text
 /plugin marketplace add antoniocostalopes/pagou-pix-integrator
 /plugin install pagou-pix-integrator@pagou-pix-integrator
 ```
 
-São 2 comandos porque o sistema separa **fonte** (marketplace) de **consumo** (plugin) — o mesmo padrão usado pelo Figma e outros plugins oficiais. Útil quando vais distribuir a outras pessoas ou queres lifecycle integrado.
+São 2 comandos porque o sistema separa **fonte** (marketplace) de **consumo** (plugin) — o mesmo padrão dos plugins oficiais (Figma e outros).
 
-| Operação | Comando |
-|---|---|
-| Listar | `/plugin` |
-| Atualizar | `/plugin marketplace update pagou-pix-integrator` + reinstall |
-| Desativar | `/plugin disable pagou-pix-integrator@pagou-pix-integrator` |
-| Desinstalar | `/plugin uninstall pagou-pix-integrator@pagou-pix-integrator` |
-
-### Verificação
-
-Depois de instalar (por qualquer caminho), reinicia o Claude Code e abre o menu:
-
-```text
-/help
-```
-
-Deves ver `pagou-pix-integrator` listada. Em qualquer projeto, invoca:
-
-```text
-/pagou-pix-integrator
-```
-
-📖 Detalhes adicionais e troubleshooting: veja [**INSTALL.md**](./INSTALL.md).
+📖 Detalhes completos e troubleshooting em [**`INSTALL.md`**](./INSTALL.md).
 
 ---
 
 ## 💡 Uso
 
-Dentro de qualquer projeto onde você queira adicionar PIX, no Claude Code:
+Dentro de qualquer projeto onde queres adicionar PIX, no Claude Code:
 
-```
+```text
 /pagou-pix-integrator
 ```
 
-Ou simplesmente peça em linguagem natural:
+Ou simplesmente pede em linguagem natural:
 
 > _"Integra PIX via Pagou.ai neste projeto."_
 >
 > _"Adiciona um webhook da Pagou e implementa a cobrança PIX."_
 
-A Skill cuida do resto. Você só precisa de:
+A Skill cuida do resto. Só precisas de **4 informações** — tudo o resto é descoberto:
 
-1. 🔑 **`PAGOU_API_KEY`** — chave da sua conta Pagou
+1. 🔑 **`PAGOU_API_KEY`** — chave da tua conta Pagou
 2. 🌐 **Ambiente** — sandbox ou produção
-3. 🔗 **URL pública** do projeto (para registrar o webhook)
-4. 🏷️ **Status internos** — como mapear `paid` → `pago` no seu domínio
+3. 🔗 **URL pública** do projeto (para registar o webhook)
+4. 🏷️ **Status internos** — como mapear `paid` → `pago` no teu domínio
 
 ---
 
 ## 🧰 Frameworks suportados
 
-Cada adapter traz **código pronto a copiar**, específico para o stack, com cliente HTTP, serviço, endpoint, webhook, migrations e testes.
+Cada adapter traz **código pronto a copiar**, específico para o stack, com cliente HTTP, serviço, endpoints (criar / cancel / refund / webhook com HMAC), migrations, frontend, e testes.
 
 | | Framework | Adapter | Inclui |
 |---|---|---|---|
-| ⚫ | **Next.js** (App Router + Pages Router) | [`frameworks/nextjs.md`](./frameworks/nextjs.md) | Prisma · Vitest · TypeScript |
-| 🔴 | **Laravel** (9, 10, 11) | [`frameworks/laravel.md`](./frameworks/laravel.md) | Eloquent · Jobs · Pest/PHPUnit |
+| ⚫ | **Next.js** (App + Pages Router) | [`frameworks/nextjs.md`](./frameworks/nextjs.md) | Prisma · Vitest · TypeScript · React hook + componente |
+| 🔴 | **Laravel** (9, 10, 11) | [`frameworks/laravel.md`](./frameworks/laravel.md) | Eloquent · Jobs · Pest/PHPUnit · Blade + Alpine |
 | 🔵 | **WordPress** (6.0+) | [`frameworks/wordpress.md`](./frameworks/wordpress.md) | Plugin · REST API · wp-cron |
 | 🟣 | **WooCommerce** (7.0+) | [`frameworks/woocommerce.md`](./frameworks/woocommerce.md) | Gateway WC · HPOS · meta de pedido |
 | ⚪ | **Genérico** | [`frameworks/generic.md`](./frameworks/generic.md) | Express, FastAPI, Django, Rails, Go, .NET, … |
 
-Não vê seu stack? O adapter genérico cobre o **contrato universal** (DDL, pseudocódigo, contratos de endpoint) que você adapta para qualquer linguagem.
+Não vês o teu stack? O adapter genérico cobre o **contrato universal** (DDL, pseudocódigo, contratos de endpoint, HMAC verify por linguagem) que adaptas para qualquer linguagem.
+
+---
+
+## 🛡️ Princípios não-negociáveis
+
+Encodados em `CLAUDE.md` e validados em cada checklist:
+
+| 🚫 Anti-padrão | ✅ Como a Skill faz |
+|---|---|
+| `PAGOU_API_KEY` no browser | Apenas backend, validado por grep negativo |
+| Webhook sem verificação | HMAC-SHA256 obrigatório em produção (fail-closed) |
+| Dedup por `data.id` (transação) | Dedup por `event.id` (top-level) — uma transação emite N eventos |
+| `setStatus('paid')` após sucesso no browser | Estado final **só** via webhook ou GET de reconciliação |
+| Valores em reais | Sempre em **centavos** (Pagou v2) — verificado por teste |
+| Esquecer `external_ref` | Sempre presente — base de idempotência e reconciliação |
+| Webhook handler com lógica pesada inline | ACK rápido `{"received": true}` + processamento assíncrono |
+| Retry de `POST` em erro | Reconciliação via `GET`, não retentativa de criação |
+| Confirmar refund no POST | Esperar webhook `transaction.refunded` (estorno bancário leva tempo) |
+| QR base64 sem prefixo MIME | Sempre `data:image/png;base64,` no `<img src=...>` |
+
+---
+
+## 🏗️ Arquitetura — o que é gerado no seu projeto
+
+```
+seu-projeto/
+├── src/lib/pagou/                     (ou app/Services/Pagou/, plugins/pagou-pix/, etc.)
+│   ├── client.ts                      ← wrapper HTTP autenticado
+│   ├── pix.ts                         ← serviço PIX (criar · consultar · cancel · refund)
+│   ├── signature.ts                   ← verificação HMAC-SHA256 do webhook
+│   └── status.ts                      ← mapeamento Pagou → status interno
+│
+├── src/hooks/usePagouPix.ts                              ← hook React (criar · polling · estados)
+├── src/components/PixCheckout.tsx                        ← QR + copia-e-cola + UX completa
+│
+├── app/api/pagou/pix/route.ts                            ← endpoint público (criar cobrança)
+├── app/api/webhooks/pagou/route.ts                       ← webhook (HMAC + dedup + ACK rápido)
+├── app/api/admin/pagou/transactions/[id]/cancel/route.ts ← admin (cancelar PIX pendente)
+├── app/api/admin/pagou/transactions/[id]/refund/route.ts ← admin (estornar total/parcial)
+├── app/api/metrics/route.ts                              ← Prometheus exposition (opcional)
+│
+├── prisma/migrations/                 ← 2 tabelas novas
+│   └── add_pagou_pix/
+│       ├── pagou_pix_transactions     ← UNIQUE external_ref + pagou_transaction_id
+│       └── pagou_webhook_events       ← UNIQUE event_id (idempotência)
+│
+├── tests/pagou/                       ← 6 suítes
+│   ├── status.test.ts                 (unit)
+│   ├── signature.test.ts              (HMAC verify + replay rejection)
+│   ├── client.test.ts                 (integration)
+│   ├── webhook.test.ts                (dedup + processing + invalid sig)
+│   ├── refund.test.ts                 (total + parcial)
+│   └── e2e.test.ts                    (fluxo completo)
+│
+├── PAGOU_PIX_INTEGRATION_PLAN.md      ← gerado ANTES (approval gate)
+├── PAGOU_PIX_INTEGRATION_REPORT.md    ← gerado DEPOIS
+├── PAGOU_PIX_INTEGRATION_SCORE.md     ← score 0–100
+├── README_PAGOU_PIX.md                ← guia operacional
+└── TEST_REPORT.md                     ← resultados dos testes
+```
+
+Diagramas detalhados em [`docs/architecture.md`](./docs/architecture.md), [`docs/payment-flow.md`](./docs/payment-flow.md) e [`docs/webhook-flow.md`](./docs/webhook-flow.md).
 
 ---
 
@@ -252,64 +293,14 @@ A Skill termina sempre com um score técnico **0–100** calculado deterministic
 | Faixa | Classificação | Ação |
 |---|---|---|
 | 🟢 **95–100** | Enterprise Ready | Liberar |
-| 🟢 **90–94** | Production Ready | Liberar com monitoramento extra |
+| 🟢 **90–94** | Production Ready | Liberar com monitorização extra |
 | 🟡 **80–89** | Minor Improvements | Listar gaps e corrigir antes de prod |
 | 🟠 **70–79** | Needs Review | Revisão humana obrigatória |
 | 🔴 **0–69** | Not Ready | Não deploy. Re-trabalhar. |
 
 > ⚠️ **Score abaixo de 90 não vai para produção sem revisão humana.**
 
-Detalhes em [`docs/scoring-engine.md`](./docs/scoring-engine.md).
-
----
-
-## 🛡️ Princípios não-negociáveis
-
-Encodados em `CLAUDE.md` e validados em cada checklist:
-
-| 🚫 Anti-padrão | ✅ Como a Skill faz |
-|---|---|
-| `PAGOU_API_KEY` no browser | Apenas backend, validado por grep negativo |
-| Dedup por `data.id` (transação) | Dedup por `event.id` (top-level) — uma transação emite N eventos |
-| `setStatus('paid')` após sucesso no browser | Estado final **só** via webhook ou GET de reconciliação |
-| Valores em reais | Sempre em **centavos** (Pagou v2) — verificado por teste |
-| Esquecer `external_ref` | Sempre presente — base de idempotência e reconciliação |
-| Webhook handler com lógica pesada inline | ACK rápido `{"received": true}` + processamento assíncrono |
-| Retry de `POST` em erro | Reconciliação via `GET`, não retentativa de criação |
-
----
-
-## 🏗️ Arquitetura — o que é gerado no seu projeto
-
-```
-seu-projeto/
-├── src/lib/pagou/                     (ou app/Services/Pagou/, plugins/pagou-pix/, etc.)
-│   ├── client.ts                      ← wrapper HTTP autenticado
-│   ├── pix.ts                         ← serviço PIX (criar + consultar)
-│   └── status.ts                      ← mapeamento Pagou → status interno
-│
-├── app/api/pagou/pix/route.ts         ← endpoint público (criar cobrança)
-├── app/api/webhooks/pagou/route.ts    ← endpoint webhook
-│
-├── prisma/migrations/                 ← 2 tabelas novas
-│   └── add_pagou_pix/
-│       ├── pagou_pix_transactions     ← UNIQUE external_ref + pagou_transaction_id
-│       └── pagou_webhook_events       ← UNIQUE event_id (idempotência)
-│
-├── tests/pagou/                       ← 4 suítes
-│   ├── status.test.ts                 (unit)
-│   ├── client.test.ts                 (integration)
-│   ├── webhook.test.ts                (dedup + processing)
-│   └── e2e.test.ts                    (fluxo completo)
-│
-├── PAGOU_PIX_INTEGRATION_PLAN.md      ← gerado ANTES (approval gate)
-├── PAGOU_PIX_INTEGRATION_REPORT.md    ← gerado DEPOIS
-├── PAGOU_PIX_INTEGRATION_SCORE.md     ← score 0–100
-├── README_PAGOU_PIX.md                ← guia operacional
-└── TEST_REPORT.md                     ← resultados dos testes
-```
-
-Diagramas detalhados em [`docs/architecture.md`](./docs/architecture.md), [`docs/payment-flow.md`](./docs/payment-flow.md) e [`docs/webhook-flow.md`](./docs/webhook-flow.md).
+Algoritmo determinístico em [`docs/scoring-engine.md`](./docs/scoring-engine.md).
 
 ---
 
@@ -317,7 +308,7 @@ Diagramas detalhados em [`docs/architecture.md`](./docs/architecture.md), [`docs
 
 ### 🧠 Como a Skill pensa
 
-- [`SKILL.md`](./SKILL.md) — contrato e fluxo da Skill (frontmatter YAML invocável)
+- [`SKILL.md`](./SKILL.md) — contrato e fluxo (frontmatter YAML invocável)
 - [`CLAUDE.md`](./CLAUDE.md) — instruções de execução das 6 fases
 - [`KNOWLEDGE.md`](./KNOWLEDGE.md) — fonte única da verdade sobre a API Pagou v2
 
@@ -344,7 +335,7 @@ Diagramas detalhados em [`docs/architecture.md`](./docs/architecture.md), [`docs
 ### ✅ Checklists de validação
 
 - [`checklists/security.md`](./checklists/security.md)
-- [`checklists/webhook.md`](./checklists/webhook.md)
+- [`checklists/webhook.md`](./checklists/webhook.md) — inclui validação HMAC obrigatória
 - [`checklists/reconciliation.md`](./checklists/reconciliation.md)
 - [`checklists/validation.md`](./checklists/validation.md)
 - [`checklists/production.md`](./checklists/production.md)
@@ -356,16 +347,24 @@ Diagramas detalhados em [`docs/architecture.md`](./docs/architecture.md), [`docs
 - [`docs/webhook-flow.md`](./docs/webhook-flow.md) — handler, job, idempotência
 - [`docs/scoring-engine.md`](./docs/scoring-engine.md) — algoritmo determinístico do score
 
-### 📈 Observabilidade
+---
 
-- [`docs/observability/metrics.md`](./docs/observability/metrics.md) — definição de 15 métricas Prometheus/OTel com snippets por linguagem
-- [`docs/observability/prometheus-alerts.yml`](./docs/observability/prometheus-alerts.yml) — 8 regras de alerta production-ready
-- [`docs/observability/grafana-dashboard.json`](./docs/observability/grafana-dashboard.json) — dashboard com 9 painéis em 3 linhas, importável directamente
+## 📈 Observabilidade
 
-### 🧪 Ferramentas para desenvolvimento
+Production-ready desde a v1.2.0 — sem trabalho manual:
 
-- [`tools/pagou-mock/`](./tools/pagou-mock/) — servidor que simula a API v2 da Pagou localmente (zero dependências, Node 20+). Cenários por prefixo de `external_ref` (`expire-`, `refuse-`, `chargeback-`, `slow-`, `silent-`)
-- [`tools/webhook-tester/`](./tools/webhook-tester/) — script Bash que envia eventos com HMAC válido para o teu webhook local, para testar dedup e fluxos compostos
+- [`docs/observability/metrics.md`](./docs/observability/metrics.md) — 15 métricas Prometheus/OTel com snippets para Node, Laravel, Python, Go
+- [`docs/observability/prometheus-alerts.yml`](./docs/observability/prometheus-alerts.yml) — 8 regras de alerta prontas (webhook errors, invalid signatures, silence detection, latência, drift de reconciliação)
+- [`docs/observability/grafana-dashboard.json`](./docs/observability/grafana-dashboard.json) — dashboard com 9 painéis em 3 linhas (Cobrança · Webhooks · Reconciliação), importável directamente
+
+---
+
+## 🧪 Ferramentas para desenvolvimento
+
+Trabalhar localmente sem depender da API real:
+
+- [`tools/pagou-mock/`](./tools/pagou-mock/) — servidor que simula a API v2 da Pagou (zero dependências, Node 20+). Implementa as 4 rotas (`create`, `get`, `cancel`, `refund`) e dispara webhooks com HMAC válido. Cenários por prefixo de `external_ref`: `expire-`, `refuse-`, `chargeback-`, `slow-`, `silent-`
+- [`tools/webhook-tester/`](./tools/webhook-tester/) — script Bash que envia eventos com assinatura HMAC válida para o teu webhook local. Útil para testar dedup e cenários compostos (ex.: refund antes de paid)
 
 ---
 
@@ -383,43 +382,45 @@ Diagramas detalhados em [`docs/architecture.md`](./docs/architecture.md), [`docs
 
 ## 🔒 Segurança
 
-Encontraste uma vulnerabilidade? **Não abras issue pública.** Reporta de forma responsável via [GitHub Security Advisories](https://github.com/antoniocostalopes/pagou-pix-integrator/security/advisories/new) ou conforme descrito em [**SECURITY.md**](./SECURITY.md). Vemos cada reporte dentro de 48h.
+Encontraste uma vulnerabilidade? **Não abras issue pública.** Reporta de forma responsável via [GitHub Security Advisories](https://github.com/antoniocostalopes/pagou-pix-integrator/security/advisories/new) ou conforme descrito em [**`SECURITY.md`**](./SECURITY.md). Vemos cada reporte dentro de 48h.
+
+Em escopo: forjar webhooks, vazar segredos, bypass do Approval Gate, SQL injection / XSS / IDOR no código que esta Skill produz. Fora de escopo: vulnerabilidades na API da Pagou propriamente dita.
 
 ---
 
 ## 🤝 Contribuindo
 
-Contribuições são muito bem-vindas! Lê o [**CONTRIBUTING.md**](./CONTRIBUTING.md) e o [**CODE_OF_CONDUCT.md**](./CODE_OF_CONDUCT.md) antes de começar.
+Contribuições são muito bem-vindas! Lê o [**`CONTRIBUTING.md`**](./CONTRIBUTING.md) e o [**`CODE_OF_CONDUCT.md`**](./CODE_OF_CONDUCT.md) antes de começar.
 
 Resumo:
 
-1. 🍴 Faça um fork do repositório
-2. 🌿 Crie uma branch: `git checkout -b feat/minha-melhoria`
-3. ✏️ Faça as alterações respeitando os princípios em [`CLAUDE.md`](./CLAUDE.md)
-4. 📝 Atualize [`CHANGELOG.md`](./CHANGELOG.md) e bump SemVer em `SKILL.md` / `plugin.json` / `marketplace.json` / badge do README
-5. 📨 Abra o PR usando o template — o checklist guia-te pelos princípios
+1. 🍴 Faz fork do repositório
+2. 🌿 Cria uma branch: `git checkout -b feat/minha-melhoria`
+3. ✏️ Faz as alterações respeitando os princípios em [`CLAUDE.md`](./CLAUDE.md)
+4. 📝 Atualiza [`CHANGELOG.md`](./CHANGELOG.md) e bumpa SemVer em `SKILL.md` / `plugin.json` / `marketplace.json` / badge do README
+5. 📨 Abre o PR usando o template — o checklist guia-te pelos princípios não-negociáveis
 
 ### Áreas onde ajuda é especialmente bem-vinda
 
 - 🌐 Novos adapters de framework (Nuxt, SvelteKit, Symfony, Phoenix, Rails, Django, etc.)
-- 🧪 Mais cenários nos testes e2e
+- 🧪 Mais cenários nos testes e2e (refund parcial em sequência, eventos fora de ordem)
 - 🌍 Tradução para outras línguas (atualmente PT-BR)
-- 🔌 Integração com endpoints adicionais da Pagou (subscriptions, transfers)
-- 📊 Métricas e dashboards de operação
+- 🔌 Integração com endpoints adicionais da Pagou (subscriptions, transfers / Pix Out)
+- 📊 Variantes do dashboard Grafana (Datadog, New Relic, CloudWatch)
 
 ---
 
 ## 📅 Changelog
 
-Veja [`CHANGELOG.md`](./CHANGELOG.md) para o histórico completo.
+Versão atual: **`1.2.0`** — release de hardening para produção (HMAC + refund/cancel + observabilidade + repo hygiene + DX).
 
-**Versão atual: `1.0.0`** — primeira release.
+Histórico completo em [`CHANGELOG.md`](./CHANGELOG.md).
 
 ---
 
 ## 📜 Licença
 
-[MIT](./LICENSE) © 2026 [AgencyCoders](https://github.com/antoniocostalopes)
+[MIT](./LICENSE) © 2026 [antoniocostalopes](https://github.com/antoniocostalopes)
 
 ---
 
@@ -427,6 +428,6 @@ Veja [`CHANGELOG.md`](./CHANGELOG.md) para o histórico completo.
 
 ### Feito com 💸 para a comunidade brasileira de pagamentos
 
-[**🐛 Reportar bug**](https://github.com/antoniocostalopes/pagou-pix-integrator/issues) • [**✨ Sugerir feature**](https://github.com/antoniocostalopes/pagou-pix-integrator/issues) • [**⭐ Star no GitHub**](https://github.com/antoniocostalopes/pagou-pix-integrator)
+[**🐛 Reportar bug**](https://github.com/antoniocostalopes/pagou-pix-integrator/issues/new?template=bug_report.md) • [**✨ Sugerir feature**](https://github.com/antoniocostalopes/pagou-pix-integrator/issues/new?template=feature_request.md) • [**🧰 Pedir adapter**](https://github.com/antoniocostalopes/pagou-pix-integrator/issues/new?template=adapter_request.md) • [**⭐ Star no GitHub**](https://github.com/antoniocostalopes/pagou-pix-integrator)
 
 </div>
