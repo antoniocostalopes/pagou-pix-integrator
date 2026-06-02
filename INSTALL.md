@@ -1,181 +1,145 @@
 # Instalação — Pagou PIX Integrator
 
-Esta Skill é um pacote para o **Claude Code**. Pode ser instalada em três modos:
-
-| Modo | Quando usar | Comando |
-|---|---|---|
-| **Global (recomendado)** | Você quer a skill disponível em qualquer projeto | scripts `install.ps1` / `install.sh` |
-| **Por projeto** | Você quer a skill apenas no projeto X | copiar a pasta para `<projeto>/.claude/skills/pagou-pix-integrator` |
-| **Symlink (dev)** | Você está desenvolvendo / editando a Skill | scripts com flag `-Link` (PowerShell) ou `--link` (bash) |
+Este plugin é instalado pelo Claude Code através do sistema nativo de **marketplaces de plugins**. Sem scripts, sem cópia manual de pastas.
 
 ## Pré-requisitos
 
-- Claude Code CLI instalado e funcionando (`claude --version`)
-- PowerShell 5.1+ (Windows) ou Bash 4+ (macOS / Linux / WSL)
+- [Claude Code CLI](https://claude.com/claude-code) instalado e funcionando
+- Acesso ao GitHub (a CLI usa o teu auth do `gh` ou um token Git padrão para clonar marketplaces)
 
-## Instalação rápida — Global
+## Instalação
 
-### Windows (PowerShell)
+Dentro do Claude Code, executa:
 
-```powershell
-cd "C:\caminho\até\pagou-pix-integrator"
-.\install.ps1
+```text
+/plugin marketplace add antoniocostalopes/pagou-pix-integrator
+/plugin install pagou-pix-integrator@pagou-pix-integrator
 ```
 
-Por padrão, copia a pasta para `$env:USERPROFILE\.claude\skills\pagou-pix-integrator`.
+**O que cada comando faz:**
 
-Para criar um link simbólico (recomendado se estiver editando a Skill):
+| Comando | Efeito |
+|---|---|
+| `/plugin marketplace add antoniocostalopes/pagou-pix-integrator` | Clona o repo como uma fonte de plugins (lê `.claude-plugin/marketplace.json`) |
+| `/plugin install pagou-pix-integrator@pagou-pix-integrator` | Instala o plugin `pagou-pix-integrator` que veio desse marketplace |
 
-```powershell
-.\install.ps1 -Link
-```
-
-Symlinks no Windows requerem privilégios de administrador OU Developer Mode ativado.
-
-### macOS / Linux (Bash)
-
-```bash
-cd /caminho/até/pagou-pix-integrator
-chmod +x install.sh
-./install.sh
-```
-
-Por padrão, copia para `~/.claude/skills/pagou-pix-integrator`.
-
-Symlink:
-
-```bash
-./install.sh --link
-```
+A sintaxe é `nome-do-plugin@nome-do-marketplace`. Aqui ambos são `pagou-pix-integrator` porque este repo é um marketplace de um único plugin.
 
 ## Verificação
 
-Após instalar:
-
-```bash
-ls ~/.claude/skills/pagou-pix-integrator       # Unix
-dir $env:USERPROFILE\.claude\skills\pagou-pix-integrator   # Windows
+```text
+/plugin
 ```
 
-Reinicie o Claude Code (ou rode `/help` numa nova sessão) — a Skill deve aparecer como invocável:
+Procura `pagou-pix-integrator` na lista; o estado deve ser **enabled**. Em seguida, em qualquer projeto, podes invocar a skill por nome:
 
-```
+```text
 /pagou-pix-integrator
 ```
 
-## Instalação por projeto
+Ou simplesmente pedir em linguagem natural:
 
-Se preferir instalar apenas num projeto específico:
+> _"Integra PIX via Pagou.ai neste projeto."_
 
-```bash
-# Dentro do projeto onde quer ter PIX
-mkdir -p .claude/skills
-cp -r /caminho/até/pagou-pix-integrator .claude/skills/
-```
-
-```powershell
-# Windows
-New-Item -ItemType Directory -Force .claude\skills | Out-Null
-Copy-Item -Recurse "C:\caminho\até\pagou-pix-integrator" .claude\skills\
-```
-
-A Skill ficará disponível apenas dentro daquele projeto.
-
-## Uso
-
-Dentro de um projeto onde você quer adicionar PIX, no Claude Code:
-
-```
-/pagou-pix-integrator
-```
-
-Ou simplesmente peça:
-
-> "Integra PIX via Pagou.ai neste projeto."
-
-A Skill executa autonomamente as 6 fases:
-
-1. **Descobrir** — analisa o projeto sem perguntar
-2. **Confirmar** — apresenta plano e pede aprovação
-3. **Implementar** — gera código, migrations, testes
-4. **Testar** — executa todos os testes
-5. **Validar** — percorre 5 checklists
-6. **Pontuar** — score 0–100 e classificação
-
-Após concluir, a Skill grava no seu projeto:
-
-- `PAGOU_PIX_INTEGRATION_PLAN.md`
-- `PAGOU_PIX_INTEGRATION_REPORT.md`
-- `PAGOU_PIX_INTEGRATION_SCORE.md`
-- `README_PAGOU_PIX.md`
-- `TEST_REPORT.md`
-
-Mais o código real: cliente, serviço, endpoint, webhook, persistência.
+O Claude reconhece o intent e carrega a skill automaticamente.
 
 ## Atualizar
 
-### Via cópia
+Quando uma nova versão for publicada no repo:
 
-Remova a versão antiga e instale a nova:
-
-```bash
-rm -rf ~/.claude/skills/pagou-pix-integrator
-./install.sh
+```text
+/plugin marketplace update pagou-pix-integrator
+/plugin install pagou-pix-integrator@pagou-pix-integrator
 ```
 
-```powershell
-Remove-Item -Recurse -Force $env:USERPROFILE\.claude\skills\pagou-pix-integrator
-.\install.ps1
-```
-
-### Via symlink
-
-Se instalou com `-Link` / `--link`, basta dar `git pull` (ou atualizar os ficheiros) no folder de origem — a Skill atualiza automaticamente.
+O `marketplace update` faz `git pull` no marketplace; o `install` reinstala o plugin com a versão nova.
 
 ## Desinstalar
 
-```bash
-rm -rf ~/.claude/skills/pagou-pix-integrator
+```text
+/plugin uninstall pagou-pix-integrator@pagou-pix-integrator
+/plugin marketplace remove pagou-pix-integrator
 ```
 
-```powershell
-Remove-Item -Recurse -Force $env:USERPROFILE\.claude\skills\pagou-pix-integrator
-```
+O primeiro remove o plugin instalado. O segundo remove o marketplace local.
 
-## Resolução de problemas
+## Instalação por projeto vs. global
 
-### A Skill não aparece como invocável
+O sistema de plugins do Claude Code suporta scopes diferentes. Por padrão a instalação é **user-level** (global) — o plugin fica disponível em qualquer projeto.
 
-1. Confirme que o folder destino existe: `~/.claude/skills/pagou-pix-integrator`
-2. Confirme que `SKILL.md` está na raiz desse folder e começa com frontmatter `---` válido
-3. Reinicie o Claude Code (fechar e abrir o terminal)
-4. Tente listar com `/help` ou `/`
+Para instalar apenas num projeto específico, ver a documentação oficial do `/plugin` sobre scopes (`--scope project`).
 
-### "Symlink requer permissões" no Windows
+## Repositório privado
 
-Ative o **Developer Mode** em Configurações do Windows → Para Desenvolvedores → Modo de Desenvolvedor. Alternativamente, rode o PowerShell como Administrador.
-
-### "Skill já instalada" mas comportamento desatualizado
-
-Pode ser cache. Force a re-instalação:
+Se este repo estiver privado, o teu CLI precisa estar autenticado no GitHub para conseguir cloná-lo:
 
 ```bash
-./install.sh --force
+gh auth login
 ```
 
-```powershell
-.\install.ps1 -Force
+Depois disso, o `/plugin marketplace add` consegue aceder.
+
+## Troubleshooting
+
+### `marketplace add` falha com erro de autenticação
+
+Confirma que estás autenticado:
+
+```bash
+gh auth status
 ```
 
-## Onde a Skill procura coisas
+Se não estiveres, autentica-te:
 
-Após instalada, a Skill **não** modifica nada no `~/.claude/`. Ela apenas é lida pelo Claude Code quando você invoca `/pagou-pix-integrator` dentro de um projeto.
+```bash
+gh auth login
+```
 
-Todo o trabalho efetivo da Skill acontece **no projeto-alvo** onde você a invoca:
+### A skill não aparece como invocável após instalação
 
-- Lê os ficheiros do projeto (discovery)
-- Gera código no projeto
-- Cria relatórios no projeto
-- Executa testes no projeto
+1. Confirma na listagem: `/plugin` → o estado de `pagou-pix-integrator` é **enabled**?
+2. Se aparecer **disabled**, ativa: `/plugin enable pagou-pix-integrator@pagou-pix-integrator`
+3. Reinicia o Claude Code (fecha e abre o terminal)
 
-A Skill em si é apenas um conjunto de instruções e templates.
+### "Plugin não encontrado" no `/plugin install`
+
+Confirma o nome exacto do plugin no marketplace:
+
+```text
+/plugin marketplace list
+```
+
+A sintaxe é sensível: `nome-do-plugin@nome-do-marketplace`. Para este projeto: `pagou-pix-integrator@pagou-pix-integrator`.
+
+### Versão antiga mesmo após atualizar
+
+Força a reinstalação:
+
+```text
+/plugin uninstall pagou-pix-integrator@pagou-pix-integrator
+/plugin marketplace update pagou-pix-integrator
+/plugin install pagou-pix-integrator@pagou-pix-integrator
+```
+
+## Como o plugin se estrutura no disco
+
+Após instalado, o plugin vive em:
+
+| Sistema | Caminho |
+|---|---|
+| macOS / Linux | `~/.claude/plugins/pagou-pix-integrator/` |
+| Windows | `%USERPROFILE%\.claude\plugins\pagou-pix-integrator\` |
+
+Nunca precisas de tocar nesses ficheiros manualmente — a CLI gere tudo.
+
+## Onde o plugin atua
+
+O plugin **não** modifica nada na tua máquina ou na pasta `~/.claude/`. Ele apenas é carregado pelo Claude Code quando invocas `/pagou-pix-integrator` dentro de um projeto.
+
+Todo o trabalho efetivo da Skill acontece **no projeto-alvo** onde a invocas:
+
+- Lê os ficheiros do projeto (descoberta)
+- Gera código no projeto (cliente Pagou, endpoint, webhook, testes)
+- Cria relatórios no projeto (PLAN, REPORT, SCORE, TEST_REPORT)
+
+A Skill em si é apenas um conjunto de instruções, templates e código adapter.

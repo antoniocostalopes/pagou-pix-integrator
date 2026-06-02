@@ -1,0 +1,27 @@
+{
+  "name": "pagou-pix-integrator",
+  "version": "1.1.0",
+  "description": "Skill autônoma para Claude Code que integra PIX via Pagou.ai em projetos existentes (Next.js, Laravel, WordPress, WooCommerce, ou qualquer outro stack), com descoberta automática, aprovação humana, testes, validação e score técnico 0-100.",
+  "author": {
+    "name": "antoniocostalopes",
+    "url": "https://github.com/antoniocostalopes"
+  },
+  "homepage": "https://github.com/antoniocostalopes/pagou-pix-integrator",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/antoniocostalopes/pagou-pix-integrator.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "pix",
+    "pagou",
+    "claude-code",
+    "claude-skill",
+    "payment-integration",
+    "brazilian-payment",
+    "nextjs",
+    "laravel",
+    "wordpress",
+    "woocommerce"
+  ]
+}

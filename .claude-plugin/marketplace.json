@@ -1,0 +1,36 @@
+{
+  "name": "pagou-pix-integrator",
+  "owner": {
+    "name": "antoniocostalopes",
+    "url": "https://github.com/antoniocostalopes"
+  },
+  "metadata": {
+    "description": "Marketplace de plugins do antoniocostalopes — começando pelo Pagou PIX Integrator.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "pagou-pix-integrator",
+      "source": "./",
+      "description": "Skill autônoma para integrar PIX via Pagou.ai em qualquer projeto existente — Next.js, Laravel, WordPress, WooCommerce ou genérico. Descoberta automática, aprovação humana, testes, validação e score técnico 0-100.",
+      "version": "1.1.0",
+      "author": {
+        "name": "antoniocostalopes",
+        "url": "https://github.com/antoniocostalopes"
+      },
+      "homepage": "https://github.com/antoniocostalopes/pagou-pix-integrator",
+      "license": "MIT",
+      "category": "payment-integration",
+      "tags": [
+        "pix",
+        "pagou",
+        "payment",
+        "brazilian-payment",
+        "nextjs",
+        "laravel",
+        "wordpress",
+        "woocommerce"
+      ]
+    }
+  ]
+}

@@ -88,92 +88,41 @@ A Skill segue um **fluxo imutável de 6 fases**. Nunca inverte a ordem.
 ### Pré-requisitos
 
 - [Claude Code CLI](https://claude.com/claude-code) instalado
-- **PowerShell 5.1+** (Windows) ou **Bash 4+** (macOS / Linux / WSL)
-- Git (apenas para clonar o repo)
 
-### 1. Clone o repositório
+### Em dois comandos, dentro do Claude Code
 
-```bash
-git clone https://github.com/antoniocostalopes/pagou-pix-integrator.git
-cd pagou-pix-integrator
+```text
+/plugin marketplace add antoniocostalopes/pagou-pix-integrator
+/plugin install pagou-pix-integrator@pagou-pix-integrator
 ```
 
-### 2. Escolha o modo de instalação
+O primeiro comando registra este repositório como um marketplace local. O segundo instala o plugin a partir dele.
 
-| Modo | Quando usar |
-|---|---|
-| 🌍 **Global** | A Skill fica disponível em **qualquer** projeto |
-| 📁 **Por projeto** | A Skill fica disponível **apenas** num projeto específico |
-| 🔗 **Symlink (dev)** | Você está editando/contribuindo na Skill |
+### Verificação
 
-### 🌍 Instalação global (recomendado)
+Depois de instalar, lista os teus plugins:
 
-#### Windows (PowerShell)
-
-```powershell
-.\install.ps1
+```text
+/plugin
 ```
 
-Para criar **symlink** (requer Developer Mode ou Admin):
+Deves ver `pagou-pix-integrator` listado como **enabled**. A skill fica disponível em qualquer projeto que abrires com o Claude Code.
 
-```powershell
-.\install.ps1 -Link
+### Atualizar
+
+```text
+/plugin marketplace update pagou-pix-integrator
+/plugin install pagou-pix-integrator@pagou-pix-integrator
 ```
 
-Para **sobrescrever** instalação existente:
+### Desinstalar
 
-```powershell
-.\install.ps1 -Force
+```text
+/plugin uninstall pagou-pix-integrator@pagou-pix-integrator
+/plugin marketplace remove pagou-pix-integrator
 ```
 
-#### macOS / Linux / WSL (Bash)
-
-```bash
-chmod +x install.sh
-./install.sh
-```
-
-Symlink:
-
-```bash
-./install.sh --link
-```
-
-Sobrescrever:
-
-```bash
-./install.sh --force
-```
-
-### 📁 Instalação por projeto
-
-Dentro do projeto onde você quer ter PIX:
-
-```bash
-mkdir -p .claude/skills
-cp -r /caminho/para/pagou-pix-integrator .claude/skills/
-```
-
-Windows:
-
-```powershell
-New-Item -ItemType Directory -Force .claude\skills | Out-Null
-Copy-Item -Recurse "C:\caminho\para\pagou-pix-integrator" .claude\skills\
-```
-
-### ✅ Verificação
-
-```bash
-# Unix
-ls ~/.claude/skills/pagou-pix-integrator
-
-# Windows
-dir $env:USERPROFILE\.claude\skills\pagou-pix-integrator
-```
-
-Reinicie o Claude Code. A Skill estará disponível.
-
-📖 Detalhes adicionais (troubleshooting, atualização, desinstalação): veja [**INSTALL.md**](./INSTALL.md).
+📖 Detalhes adicionais e troubleshooting: veja [**INSTALL.md**](./INSTALL.md).
 
 ---
 

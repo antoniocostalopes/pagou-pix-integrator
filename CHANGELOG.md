@@ -4,6 +4,24 @@ Todas as mudanças notáveis nesta Skill são documentadas aqui.
 
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e a versão segue [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.1.0] — 2026-06-02
+
+### Adicionado
+
+- `.claude-plugin/plugin.json` — manifesto do plugin (necessário para instalação via `/plugin install`)
+- `.claude-plugin/marketplace.json` — manifesto de marketplace para o fluxo `/plugin marketplace add antoniocostalopes/pagou-pix-integrator`
+- INSTALL.md reescrito em torno do fluxo nativo do Claude Code (sem scripts)
+- README.md com a secção de instalação simplificada para os dois comandos canónicos
+
+### Removido
+
+- `install.ps1` — scripts customizados substituídos pelo sistema de plugins nativo
+- `install.sh` — idem
+
+### Justificativa
+
+A instalação agora segue o padrão das skills oficiais (Figma, etc.): o utilizador adiciona o repo como marketplace e instala o plugin a partir dele, tudo a partir de comandos do Claude Code. Não há ficheiros para copiar manualmente nem scripts a executar.
+
 ## [1.0.0] — 2026-06-02
 
 ### Adicionado
