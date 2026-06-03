@@ -4,7 +4,7 @@
 
 ### Plugin para Claude Code que integra PIX via Pagou.ai em qualquer projeto existente — com descoberta automática, aprovação humana, testes, validação e score técnico.
 
-[![Version](https://img.shields.io/badge/version-3.0.1-blue.svg?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.2-blue.svg?style=for-the-badge)](./CHANGELOG.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-D97706?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.com/claude-code)
 [![PT-BR](https://img.shields.io/badge/lang-PT--BR-009C3B?style=for-the-badge)](#)
 
@@ -401,7 +401,7 @@ Em escopo: forjar webhooks, vazar segredos, bypass do Approval Gate, SQL injecti
 
 ## 📅 Changelog
 
-Versão atual: **`3.0.1`** — fecha 3 gaps críticos identificados na comparação com a doc oficial da Pagou: aviso explícito de divergência quando modo `polling` é escolhido, captura e log de `requestId` para tracing (todos os 5 adapters), e nota clara sobre `environment: "production"` no SDK `@pagouai/api-sdk`. PATCH — sem mudança de contrato.
+Versão atual: **`3.0.2`** — refinamentos e lock-in de escopo. SDK `@pagouai/api-sdk` passa a ser o caminho preferido no adapter Next.js (com wrapper manual como alternativa documentada). Tabelas completas dos 9 eventos de subscription e 6 de transfer adicionadas ao `KNOWLEDGE.md` para roteamento defensivo do webhook handler. Decisão permanente de scope PIX-only registada no `SKILL.md` ("Fora do escopo (decisão permanente)") e na memória do projeto. PATCH — sem mudança de contrato.
 
 Histórico completo em [`CHANGELOG.md`](./CHANGELOG.md).
 

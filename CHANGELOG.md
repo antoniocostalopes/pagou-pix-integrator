@@ -4,6 +4,31 @@ Todas as mudanças notáveis nesta Skill são documentadas aqui.
 
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e a versão segue [SemVer](https://semver.org/lang/pt-BR/).
 
+## [3.0.2] — 2026-06-03
+
+Refinamentos e lock-in da decisão de escopo. PATCH — sem mudança de contrato nem novas dependências obrigatórias.
+
+### Adicionado
+
+- **Caminho SDK no adapter Next.js** — `frameworks/nextjs.md` agora apresenta `@pagouai/api-sdk` como caminho preferido (3.A), com wrapper HTTP manual como alternativa documentada (3.B). Redução estimada de ~150 linhas de boilerplate gerado em projectos Node/TS. Wrapper manual permanece para quem precisa de tracing completo por `requestId` (SDK ainda não expõe headers da resposta).
+- **Tabelas completas de eventos de subscription e transfer** em `KNOWLEDGE.md` (secção "Fora do escopo"):
+  - 9 eventos de subscription com significado e ação típica (`subscription.created`, `.started`, `.renewed`, `.updated`, `.canceled`, `.payment_failed`, `.past_due`, `.trial_will_end`, `.chargeback_received`)
+  - 6 eventos de transfer com nota destacada sobre estrutura diferente do payload (`payout.created`, `.in_analysis`, `.processing`, `.transferred`, `.failed`, `.canceled` — `type` top-level em vez de `event`, `data.object.id` em vez de `data.id`)
+  - Pseudocódigo do roteamento defensivo: webhook handler responde `{received: true}` a eventos out-of-scope em vez de devolver 5xx (evita retries infinitos da Pagou)
+- **Decisão permanente de escopo "PIX-only"** documentada explicitamente:
+  - `SKILL.md` ganha tabela "Fora do escopo (decisão permanente)" listando Cards, Subscriptions, Transfers com motivo ("foco é vantagem competitiva")
+  - Memória `project-overview.md` actualizada com data e instrução para rejeitar pedidos de expansão sem nova autorização explícita do dono
+
+### Alterado
+
+- `frameworks/nextjs.md` — secção "3. Cliente Pagou" reorganizada em 3.A (SDK preferido) e 3.B (wrapper manual, código existente preservado).
+- `KNOWLEDGE.md` — secção "Fora do escopo desta Skill" deixa de ser um parágrafo de 2 linhas e passa a ser uma especificação completa de eventos com guia de roteamento defensivo.
+- `SKILL.md` — secção "Escopo" ganha tabela explícita de produtos fora-do-escopo + justificação de design.
+
+### Não alterado
+
+- Contrato das 4 perguntas, modos de confirmação webhook/polling, URL hardcoded em produção, anti-padrões, scoring, fluxo das 6 fases, adapters Laravel/WordPress/WooCommerce/Generic. Wrapper manual no Next.js continua disponível como antes — esta release **adiciona** o caminho SDK, não remove.
+
 ## [3.0.1] — 2026-06-03
 
 Fecha 3 gaps críticos identificados na comparação com a doc oficial da Pagou (`developer.pagou.ai`). PATCH — sem alteração de contrato nem novas dependências.

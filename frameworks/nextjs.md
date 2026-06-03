@@ -84,7 +84,103 @@ npx prisma migrate dev --name add_pagou_pix
 
 ## 3. Cliente Pagou
 
-`src/lib/pagou/client.ts`:
+A Skill suporta **dois caminhos** para Next.js/TypeScript — **o SDK oficial é preferível**.
+
+### 3.A Caminho preferido — SDK `@pagouai/api-sdk` (v3.0.2+)
+
+Instala e usa o SDK oficial — é mantido pela Pagou, tem tipos completos, e fica menos código teu para manter.
+
+```bash
+npm add @pagouai/api-sdk
+# ou: pnpm add @pagouai/api-sdk
+# ou: bun add @pagouai/api-sdk
+```
+
+`src/lib/pagou/client.ts` (versão SDK — ~25 linhas):
+
+```ts
+import { Client } from "@pagouai/api-sdk";
+
+let cached: Client | undefined;
+
+export function getPagouClient(): Client {
+  if (cached) return cached;
+  const apiKey = process.env.PAGOU_API_KEY;
+  if (!apiKey) throw new Error("PAGOU_API_KEY is not set");
+
+  // v3.0.0+ — Skill é apenas produção. SDK aceita "sandbox" mas a Skill não suporta.
+  // Para dev sem cobranças reais, ver tools/pagou-mock/ no repo da Skill.
+  cached = new Client({
+    apiKey,
+    environment: "production",
+  });
+  return cached;
+}
+
+// Re-export para uso por serviço/endpoint
+export type { Transaction } from "@pagouai/api-sdk";
+```
+
+`src/lib/pagou/pix.ts` (serviço — usa o SDK directamente):
+
+```ts
+import { getPagouClient } from "./client";
+import { prisma } from "@/lib/prisma";
+
+export async function createPixCharge(order: { id: string; amountCents: number; buyer: { name: string; email: string; cpf: string } }) {
+  const pagou = getPagouClient();
+
+  const tx = await pagou.transactions.create({
+    external_ref: order.id,
+    amount: order.amountCents,
+    currency: "BRL",
+    method: "pix",
+    buyer: {
+      name: order.buyer.name,
+      email: order.buyer.email,
+      document: { type: "CPF", number: order.buyer.cpf },
+    },
+  });
+
+  await prisma.pagouPixTransaction.upsert({
+    where: { externalRef: order.id },
+    create: {
+      pagouTransactionId: tx.id,
+      externalRef: order.id,
+      orderId: order.id,
+      amountCents: order.amountCents,
+      currency: "BRL",
+      status: tx.status,
+      pixQrCode: tx.pix_qr_code,
+      pixCode: tx.pix_code,
+    },
+    update: {
+      pagouTransactionId: tx.id,
+      status: tx.status,
+      pixQrCode: tx.pix_qr_code,
+      pixCode: tx.pix_code,
+      updatedAt: new Date(),
+    },
+  });
+
+  return tx;
+}
+
+export async function getPixTransaction(pagouTransactionId: string) {
+  const pagou = getPagouClient();
+  return pagou.transactions.retrieve(pagouTransactionId);
+}
+```
+
+**Para logging do `requestId`** (recomendação Pagou — ver `KNOWLEDGE.md` secção "Tracing"): o SDK não expõe os headers da resposta directamente. Se precisas de tracing detalhado, usar a versão 3.B (wrapper manual) ou esperar suporte do SDK. Em alternativa, logar `tx.id` (transaction id) que serve como correlation key.
+
+> 💡 **Quando preferir 3.A:** projecto Node/TS standard, queres manutenção mínima do cliente HTTP, não precisas de tracing detalhado por requestId, ou queres acompanhar updates do SDK oficial automaticamente.
+
+### 3.B Caminho alternativo — wrapper HTTP manual
+
+Usar quando: o SDK oficial não cobre algo que precisas, queres tracing completo por `requestId`, ou tens razão para não adicionar a dependência.
+
+`src/lib/pagou/client.ts` (versão manual — ~80 linhas):
 
 ```ts
 // v3.0.0+ — Skill apenas produção, sem sandbox

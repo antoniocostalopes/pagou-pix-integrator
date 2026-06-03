@@ -9,11 +9,11 @@ Skill autônoma para integração PIX em projetos existentes utilizando a plataf
 
 ## Versão
 
-3.0.1
+3.0.2
 
 ## Escopo
 
-Esta Skill foca exclusivamente em **PIX (pay-in)**. Cobre:
+Esta Skill foca exclusivamente em **PIX (pay-in)** — e esta é uma **decisão de produto permanente**, não um "ainda não". Cobre:
 
 - Criação de cobrança PIX (`POST /v2/transactions` com `method: "pix"`)
 - Recepção, validação, persistência e deduplicação de webhooks
@@ -21,7 +21,17 @@ Esta Skill foca exclusivamente em **PIX (pay-in)**. Cobre:
 - Testes (unit, integração, webhook, e2e)
 - Auditoria de segurança e score técnico
 
-Pix Out (transfers) e Subscriptions estão documentados em `KNOWLEDGE.md` para contexto, mas não são implementados por padrão.
+### Fora do escopo (decisão permanente)
+
+| Produto da Pagou.ai | Estado na Skill |
+|---|---|
+| **Card payments** (`method: "credit_card"`, Payment Element, 3DS, tokens `pgct_`) | ❌ Não implementado. Não está no roadmap |
+| **Subscriptions** (`POST /v2/subscriptions`, recorrência, status `trialing/active/past_due/canceled`) | ❌ Não implementado. Não está no roadmap |
+| **Transfers / Pix Out** (`POST /v2/transfers`, payout, status `pending → in_analysis → processing → paid \| error \| cancelled`) | ❌ Não implementado. Não está no roadmap |
+
+Estes produtos estão documentados em `KNOWLEDGE.md` apenas para **contexto e roteamento de webhooks** (caso eventos cheguem ao endpoint), mas a Skill não gera código para eles. Quem precisa deles deve seguir directamente a [documentação oficial da Pagou](https://developer.pagou.ai).
+
+**Porquê PIX-only:** foco é vantagem competitiva. Cobrir só PIX bem é mais útil para o público-alvo (developers brasileiros a integrar PIX em projetos existentes) do que cobrir tudo superficialmente.
 
 ## Fluxo obrigatório (imutável)
 

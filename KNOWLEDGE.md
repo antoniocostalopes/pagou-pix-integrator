@@ -353,10 +353,93 @@ Use o SDK quando o projeto for Node/TS. Para outras linguagens, faça wrapper HT
 
 ### Subscriptions (recorrência)
 
-`POST /v2/subscriptions` — exige token de cartão (`pgct_`) vindo do Payment Element. Status: `trialing → active | past_due | cancel_scheduled | canceled`. Eventos: `subscription.created`, `subscription.renewed`, `subscription.canceled`, etc.
+`POST /v2/subscriptions` — exige token de cartão (`pgct_`) vindo do Payment Element. Status: `trialing → active | past_due | cancel_scheduled | canceled`.
+
+**Estrutura do evento de webhook:**
+
+```json
+{
+  "id": "evt_sub_1001",
+  "event": "subscription",
+  "data": {
+    "event_type": "subscription.created",
+    "id": "sub_1001",
+    "status": "active",
+    "customer_email": "customer@example.com"
+  }
+}
+```
+
+**9 eventos possíveis** (roteamento: `event === "subscription"` → ler `data.event_type`):
+
+| Evento | Significado | Ação típica |
+|---|---|---|
+| `subscription.created` | Assinatura criada | Activar conta / role |
+| `subscription.started` | Período de trial terminou, cobrança real começou | Confirmar acesso pago |
+| `subscription.renewed` | Cobrança recorrente bem sucedida | Estender prazo de acesso |
+| `subscription.updated` | Algo mudou (preço, intervalo, payment method) | Atualizar localmente |
+| `subscription.canceled` | Cancelamento confirmado | Revogar acesso ao fim do período pago |
+| `subscription.payment_failed` | Cobrança falhou | Notificar utilizador, marcar grace period |
+| `subscription.past_due` | Cobrança em atraso depois do grace period | Suspender acesso |
+| `subscription.trial_will_end` | Trial termina em breve | Notificar utilizador |
+| `subscription.chargeback_received` | Disputa do pagador | Revogar acesso + alertar fraud team |
 
 ### Transfers (Pix Out / payout)
 
-`POST /v2/transfers` — envia dinheiro para uma chave PIX. Status: `pending → in_analysis → processing → paid | error | cancelled`. Estrutura de webhook diferente: top-level `type`, e `data.object.id`.
+`POST /v2/transfers` — envia dinheiro para uma chave PIX. Status: `pending → in_analysis → processing → paid | error | cancelled`.
 
-Se o usuário pedir explicitamente para incluir, abra escopo e siga a mesma disciplina (dedup por event id de topo, status mapping, testes, etc.).
+**⚠️ Estrutura do evento de webhook é DIFERENTE** dos outros dois produtos — top-level `type` (não `event`), e `data.object.id` (não `data.id`):
+
+```json
+{
+  "id": "evt_payout_1001",
+  "type": "payout.transferred",
+  "data": {
+    "object": {
+      "id": "po_1001",
+      "status": "paid"
+    }
+  }
+}
+```
+
+**6 eventos possíveis** (roteamento: ler `type` no topo, não `event` — distingue de transaction/subscription):
+
+| Evento | Significado |
+|---|---|
+| `payout.created` | Transferência criada |
+| `payout.in_analysis` | Em análise antifraude |
+| `payout.processing` | Em processamento bancário |
+| `payout.transferred` | **Transferência concluída** com sucesso |
+| `payout.failed` | Falhou (motivo em `data.object.failure_reason` se presente) |
+| `payout.canceled` | Cancelada antes de concluir |
+
+### Roteamento defensivo do webhook handler
+
+Mesmo sendo a Skill PIX-only, o endpoint `/api/webhooks/pagou` deve **não falhar** se a Pagou enviar eventos de subscription/transfer (porque outros produtos da Pagou podem partilhar a URL no painel do utilizador). Padrão recomendado:
+
+```pseudo
+function handleWebhook(body):
+    # Já fizemos dedup por id top-level
+    if body.event == "transaction":
+        # Caminho principal da Skill — processar normalmente
+        return processPaymentEvent(body)
+
+    if body.event == "subscription":
+        # Fora do escopo da Skill, mas não rejeitar
+        log_info("subscription event ignored — out of skill scope", evt=body.id, type=body.data.event_type)
+        return { received: true }
+
+    if body.type and body.type.startswith("payout."):
+        # Transfer — estrutura diferente, fora do escopo
+        log_info("payout event ignored — out of skill scope", evt=body.id, type=body.type)
+        return { received: true }
+
+    # Evento desconhecido — não falhar, mas logar para investigação
+    log_warn("unknown webhook event shape", evt=body.id)
+    return { received: true }
+```
+
+Esta defensiva está implementada nos adapters quando o utilizador escolhe modo `webhook`. **Não** implementa a lógica de subscription/transfer — só evita que a Pagou receba 5xx e fique a tentar reenviar.
+
+Se o utilizador pedir explicitamente para implementar subscription ou transfer, **rejeitar** com mensagem amigável: *"A Skill `pagou-pix-integrator` é PIX-only por design. Para subscription/transfer, ver a documentação oficial em https://developer.pagou.ai."* (decisão permanente — ver `SKILL.md` secção "Fora do escopo").
