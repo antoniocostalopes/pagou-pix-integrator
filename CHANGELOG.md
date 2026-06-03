@@ -4,6 +4,24 @@ Todas as mudanças notáveis nesta Skill são documentadas aqui.
 
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e a versão segue [SemVer](https://semver.org/lang/pt-BR/).
 
+## [3.0.3] — 2026-06-03
+
+Refresh completo do `README.md` para refletir fielmente o estado da Skill após a sequência 2.0.0 → 3.0.2. Sem alterações de código, contrato, ou comportamento.
+
+### Alterado — `README.md` (apenas)
+
+- **Nova secção "📌 Escopo — PIX-only, por design"** após "O que é". Tabela explícita dos produtos da Pagou.ai que **não** estão no roadmap (Cards, Subscriptions, Transfers) com link para a documentação oficial. Explica a justificação (foco é vantagem competitiva) e o roteamento defensivo do webhook handler.
+- **Nova secção "🏭 Produção apenas (desde v3.0.0)"** promovendo `tools/pagou-mock/` e `tools/webhook-tester/` como caminho oficial para dev local sem cobranças reais.
+- **Nova secção "🔄 Modo de confirmação — webhook ou polling"** entre "Como funciona" e "Instalação". Explica os 2 modos lado a lado: webhook (recomendado, oficial), polling (opt-out consciente para MVP / sem URL pública / dev local). Inclui critérios claros de quando escolher cada um e o aviso de divergência com a recomendação oficial Pagou.
+- **Lista "O que é" actualizada** — menciona caminho SDK (`@pagouai/api-sdk`) para Node/TS, modo polling-only como opção, e tracing por `requestId`.
+- **Tabela de features ganha 1 nova entrada:** "🔍 Tracing por `requestId`".
+- **Secção "Uso" simplificada** — as 4 perguntas passam a tabela mais clara, com cross-reference para a nova secção dedicada de modos. Remove duplicação do callout "Apenas produção" (passa a viver na nova secção dedicada).
+- **Arquitetura ganha nota** sobre ficheiros adicionais em modo `polling` (endpoints de cron) e sobre a preferência SDK no Next.js.
+
+### Não alterado
+
+- Código de adapters, prompts, templates, checklists, KNOWLEDGE.md, CLAUDE.md, SKILL.md (contrato), scoring, fluxo das 6 fases, contrato das 4 perguntas. Esta release toca apenas `README.md` (mais bump de versão nos 4 ficheiros sincronizados e nova entrada no CHANGELOG).
+
 ## [3.0.2] — 2026-06-03
 
 Refinamentos e lock-in da decisão de escopo. PATCH — sem mudança de contrato nem novas dependências obrigatórias.

@@ -4,7 +4,7 @@
 
 ### Plugin para Claude Code que integra PIX via Pagou.ai em qualquer projeto existente — com descoberta automática, aprovação humana, testes, validação e score técnico.
 
-[![Version](https://img.shields.io/badge/version-3.0.2-blue.svg?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.3-blue.svg?style=for-the-badge)](./CHANGELOG.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-D97706?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.com/claude-code)
 [![PT-BR](https://img.shields.io/badge/lang-PT--BR-009C3B?style=for-the-badge)](#)
 
@@ -50,17 +50,45 @@ Reinicia o Claude Code, depois em qualquer projeto:
 
 Em vez de leres documentação, copiares snippets e adaptares para o teu stack, invocas a Skill: ela descobre o projeto, propõe um plano, esperas pela tua aprovação, e ela entrega:
 
-- ✅ **Cliente HTTP autenticado** para a API Pagou v2
+- ✅ **Cliente HTTP autenticado** para a API Pagou v2 — preferindo SDK `@pagouai/api-sdk` em Node/TS, wrapper manual nos restantes stacks
 - ✅ **Endpoint público** de criação de cobrança PIX
 - ✅ **Webhook handler** com **verificação HMAC-SHA256**, deduplicação por `event.id` e ACK rápido
 - ✅ **Endpoints admin** para **cancelar PIX pendente** e **estornar** (total ou parcial)
 - ✅ **Migrations** para `pagou_pix_transactions` e `pagou_webhook_events` com constraints UNIQUE
-- ✅ **Serviço de reconciliação** via `GET /v2/transactions/:id` com job noturno e endpoint admin
+- ✅ **Serviço de reconciliação** via `GET /v2/transactions/:id` com job de saúde periódico e endpoint admin
+- ✅ **Modo polling-only opcional** (opt-out via 5ª pergunta) — background poller + reconcile-late para cenários sem URL pública
 - ✅ **Frontend snippets** (React hook + componente, Blade + Alpine, padrão universal) com prefixo `data:image/png;base64,` correto no QR
+- ✅ **Tracing por `requestId`** — todo cliente HTTP loga o `x-request-id` da Pagou para troubleshooting
 - ✅ **Testes** unit + integration + webhook + e2e
 - ✅ **Observabilidade** — 15 métricas Prometheus/OTel, 8 alert rules, dashboard Grafana
 - ✅ **5 relatórios obrigatórios** (PLAN antes, REPORT/SCORE/README/TEST depois)
 - ✅ **Score técnico 0–100** com classificação determinística
+
+---
+
+## 📌 Escopo — PIX-only, por design
+
+Esta Skill faz **PIX (pay-in) e nada mais.** É uma decisão de produto permanente, não um "ainda não".
+
+| Produto Pagou.ai | Estado | Onde ir se precisas |
+|---|---|---|
+| ✅ **PIX pay-in** | Implementado end-to-end | Esta Skill |
+| ❌ Card payments (Payment Element, 3DS, tokens `pgct_`) | Não implementado, **não está no roadmap** | [Documentação oficial](https://developer.pagou.ai) |
+| ❌ Subscriptions (recorrência) | Não implementado, **não está no roadmap** | [Documentação oficial](https://developer.pagou.ai) |
+| ❌ Transfers / Pix Out (payout) | Não implementado, **não está no roadmap** | [Documentação oficial](https://developer.pagou.ai) |
+
+**Porquê PIX-only:** foco é vantagem competitiva. Cobrir só PIX bem é mais útil para o público-alvo (developers brasileiros a integrar PIX em projetos existentes) do que cobrir tudo superficialmente. O webhook handler que a Skill gera **roteia defensivamente** eventos de subscription/transfer (responde `200 {received: true}` em vez de 5xx) para que projetos que partilham a URL com outros produtos da Pagou não acumulem retries falhados.
+
+---
+
+## 🏭 Produção apenas (desde v3.0.0)
+
+A Skill chama **sempre** `https://api.pagou.ai`. Não há sandbox, não há `PAGOU_ENV`, não há `PAGOU_BASE_URL`. Decisão consciente para evitar utilizadores acidentalmente em modo sandbox que auto-aprova pagamentos.
+
+**Para desenvolvimento local sem cobranças reais**, a Skill vem com:
+
+- [`tools/pagou-mock/`](./tools/pagou-mock/) — servidor Node (zero deps) que simula a API v2 da Pagou. Implementa `create`/`get`/`cancel`/`refund` e dispara webhooks com HMAC válido. Cenários por prefixo de `external_ref` (`expire-`, `refuse-`, `chargeback-`, `slow-`, `silent-`).
+- [`tools/webhook-tester/`](./tools/webhook-tester/) — script Bash que envia eventos com HMAC válido ao teu localhost. Útil para validar dedup e cenários compostos sem ter URL pública.
 
 ---
 
@@ -78,7 +106,8 @@ Em vez de leres documentação, copiares snippets e adaptares para o teu stack, 
 | 🔁 **Idempotência tripla** | Upsert por `external_ref`, UNIQUE em `event_id`, no-regress em status terminais |
 | ⚡ **Webhook resiliente** | ACK em < 1s, processamento assíncrono em fila, dedup por id de evento |
 | 💸 **Cancel + Refund** | Endpoints admin para cancelar PIX pendente e estornar (total ou parcial) |
-| 🩹 **Reconciliação** | Job noturno + endpoint admin que recupera estado via GET |
+| 🩹 **Reconciliação** | Job periódico + endpoint admin que recupera estado via GET |
+| 🔍 **Tracing por `requestId`** | Captura `x-request-id` (ou `x-pagou-request-id`) e loga em toda chamada — propagado em `PagouError`/`PagouException` para suporte |
 | 🎨 **Frontend pronto** | React hook + componente, Blade component, padrão universal — todos com prefixo MIME no QR |
 | 📈 **Observabilidade** | 15 métricas Prometheus/OTel, 8 alert rules, dashboard Grafana pré-configurado |
 | 🧪 **Mock + tester locais** | Servidor mock da API Pagou + script de webhook tester com HMAC válido (em `tools/`) |
@@ -113,6 +142,35 @@ A Skill segue um **fluxo imutável de 6 fases**. Nunca inverte a ordem.
 | 4️⃣ **Testar** | Gera e executa unit + integration + webhook + e2e (incluindo HMAC e refund) | 100% verdes |
 | 5️⃣ **Validar** | Percorre 5 checklists com evidência por item | Todos os críticos ✓ |
 | 6️⃣ **Pontuar** | Calcula score 0–100 e gera relatório final | Classificação |
+
+---
+
+## 🔄 Modo de confirmação — webhook ou polling
+
+Na Fase 2 (Confirmar) a Skill faz **4 perguntas**. A 2ª escolhe o caminho principal de confirmação de pagamento:
+
+### 🥇 Modo `webhook` (default, recomendado)
+
+Pagou envia `transaction.paid` em tempo real para `/api/webhooks/pagou`. Latência ≈ segundos. **Caminho oficial recomendado pela Pagou.**
+
+- ✅ Robusto contra cliente fechar o browser
+- ✅ Apanha chargebacks tardios e refunds manuais sem job adicional
+- ✅ Custo de API baixo (1 request por evento real)
+- ⚠️ Requer URL pública (`https://...`) + 2 min de setup no painel da Pagou para registar o webhook
+
+**Quando escolher:** integrações de produção sérias, e-commerce com volume, qualquer projeto com chargeback no domínio.
+
+### 🥈 Modo `polling` (opt-out consciente)
+
+Sem webhook, sem painel, sem URL pública. **Background poller** (cada 1 min) pergunta `GET /v2/transactions/{id}` para transações pending até estado terminal. **Job de reconcile-late** (cada 15 min) apanha estados pós-pagamento (`refunded`, `chargedback`).
+
+- ✅ Sem URL pública nem painel Pagou
+- ✅ Funciona em intranet, dev local sem tunnel, ambientes restritos
+- ⚠️ Latência ≈ 30s–1min até confirmar
+- ⚠️ Custo de API maior (mais GETs)
+- ⚠️ **Diverge da recomendação oficial Pagou** (*"Use GET polling only for reconciliation, never as primary flow"*) — a Skill avisa explicitamente sempre que o modo é escolhido
+
+**Quando escolher:** MVP, volume baixo (< 100/dia), bens digitais sem chargeback, dev local, ou projetos sem URL pública. **O endpoint de webhook é sempre gerado** em ambos os modos, permitindo upgrade futuro sem regenerar código.
 
 ---
 
@@ -196,12 +254,14 @@ Se preferires não memorizar o nome do comando, a Skill também é acionada por 
 
 Em ambos os casos a Skill cuida do resto. Só precisas de **4 informações** — tudo o resto é descoberto:
 
-1. 🔑 **`PAGOU_API_KEY`** — chave de **produção** da tua conta Pagou
-2. 🔄 **Modo de confirmação** — `webhook` (recomendado, robusto) ou `polling` (sem URL pública, mais simples)
-3. 🔗 **URL pública** do projeto (só se escolheres `webhook` — para registar o webhook na Pagou)
-4. 🏷️ **Status internos** — como mapear `paid` → `pago` no teu domínio
+| # | Pergunta | Detalhes |
+|---|---|---|
+| 1 | 🔑 **`PAGOU_API_KEY`** | Chave de **produção** da tua conta Pagou |
+| 2 | 🔄 **Modo de confirmação** | `webhook` (recomendado) ou `polling` — [ver detalhes acima](#-modo-de-confirmação--webhook-ou-polling) |
+| 3 | 🔗 **URL pública** do projeto | Só relevante se modo = `webhook`. Para registar webhook no painel Pagou |
+| 4 | 🏷️ **Status internos** | Como mapear `paid` → `pago` no teu domínio (default em PT-BR sugerido) |
 
-> 💡 **Apenas produção (desde v3.0.0).** A Skill chama sempre `https://api.pagou.ai`. Não há `PAGOU_ENV`, não há `PAGOU_BASE_URL`, não há sandbox configurável. Para dev/CI sem cobranças reais, usar `tools/pagou-mock/` no repo da Skill.
+> 💡 A Skill **nunca pergunta** framework, banco, ORM, sistema de auth, onde está o checkout, qual a tabela de pedidos — tudo isso é descoberto silenciosamente na Fase 1.
 
 ---
 
@@ -280,6 +340,8 @@ seu-projeto/
 ```
 
 Diagramas detalhados em [`docs/architecture.md`](./docs/architecture.md), [`docs/payment-flow.md`](./docs/payment-flow.md) e [`docs/webhook-flow.md`](./docs/webhook-flow.md).
+
+> 💡 **Em modo `polling`**, são adicionados endpoints de cron (`app/api/cron/pagou-pix-poll/route.ts` e `pagou-pix-reconcile/route.ts` em Next.js; equivalentes nos outros stacks). O endpoint de webhook continua a ser gerado mas o utilizador não regista no painel da Pagou. **Em projetos Node/TS**, o adapter Next.js apresenta primeiro o caminho SDK (`@pagouai/api-sdk`, ~25 linhas) e o wrapper manual (~80 linhas) como alternativa documentada para quem precisa de tracing completo por `requestId`.
 
 ---
 
@@ -401,7 +463,7 @@ Em escopo: forjar webhooks, vazar segredos, bypass do Approval Gate, SQL injecti
 
 ## 📅 Changelog
 
-Versão atual: **`3.0.2`** — refinamentos e lock-in de escopo. SDK `@pagouai/api-sdk` passa a ser o caminho preferido no adapter Next.js (com wrapper manual como alternativa documentada). Tabelas completas dos 9 eventos de subscription e 6 de transfer adicionadas ao `KNOWLEDGE.md` para roteamento defensivo do webhook handler. Decisão permanente de scope PIX-only registada no `SKILL.md` ("Fora do escopo (decisão permanente)") e na memória do projeto. PATCH — sem mudança de contrato.
+Versão atual: **`3.0.3`** — refresh completo do README para refletir fielmente o estado da Skill em 3.0.2: nova secção "📌 Escopo — PIX-only, por design" tornando explícito o que está e não está no roadmap; nova secção "🏭 Produção apenas" promovendo `tools/pagou-mock/` para dev local; nova secção "🔄 Modo de confirmação — webhook ou polling" explicando claramente a escolha; tracing por `requestId` adicionado às features e à lista de capacidades; cross-reference no fluxo das 4 perguntas. PATCH — apenas documentação.
 
 Histórico completo em [`CHANGELOG.md`](./CHANGELOG.md).
 
