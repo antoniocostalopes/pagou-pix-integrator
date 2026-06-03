@@ -2,6 +2,10 @@
 
 **Objetivo:** implementar endpoint que recebe webhooks da Pagou, deduplicar por `event.id` (top-level), persistir e processar de forma assíncrona.
 
+**Aplicabilidade:**
+- **Modo `webhook` (default):** este é o caminho principal de confirmação. Tudo abaixo aplica como descrito.
+- **Modo `polling`:** o endpoint **é mesmo assim gerado**, com a mesma implementação. A única diferença é que o utilizador não regista a URL no painel da Pagou, portanto na prática não recebe tráfego. Mantemos o código por dois motivos: (1) permite o utilizador fazer upgrade para webhook sem regenerar; (2) o `tools/webhook-tester/` continua a poder testar dedup/HMAC localmente.
+
 ## Contrato do webhook (transação)
 
 A Pagou envia:

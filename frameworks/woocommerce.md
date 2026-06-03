@@ -395,4 +395,62 @@ class Test_Pagou_WC_Webhook extends WP_UnitTestCase {
 - Ativar gateway em **WooCommerce → Configurações → Pagamentos**
 - Preencher API key e ambiente
 - Fazer um pedido de teste em sandbox
-- Disparar webhook sandbox e confirmar mudança de status do pedido
+- Disparar webhook sandbox (modo `webhook`) ou esperar 1–2 min pelo poller (modo `polling`) e confirmar mudança de status do pedido
+
+---
+
+## 10. Modo polling-only (v2.0.0+)
+
+Aplicar **apenas se** o utilizador respondeu `polling` à 5ª pergunta.
+
+### wp-cron + system cron
+
+Reutilizar o padrão do `frameworks/wordpress.md` secção 11 (intervalos `pagou_one_minute` e `pagou_fifteen_minutes`), com a diferença que a propagação de status passa pelo método nativo do WooCommerce:
+
+```php
+add_action('pagou_pix_poll', function () {
+    // ... query igual ao WP plain ...
+
+    foreach ($rows as $tx) {
+        $remote = pagou_api_get("/v2/transactions/{$tx->pagou_transaction_id}");
+        if ($remote['status'] === $tx->status) continue;
+
+        // Atualizar transação Pagou
+        $wpdb->update($table_tx,
+            ['status' => $remote['status'], 'updated_at' => current_time('mysql')],
+            ['id' => $tx->id]
+        );
+
+        // Propagar para o WC Order (HPOS-safe)
+        $order = wc_get_order($tx->external_ref);
+        if (!$order) continue;
+
+        switch ($remote['status']) {
+            case 'paid':
+                $order->payment_complete($tx->pagou_transaction_id);
+                break;
+            case 'expired':
+            case 'canceled':
+            case 'refused':
+                $order->update_status('cancelled', 'PIX ' . $remote['status']);
+                break;
+        }
+        $order->save();
+    }
+});
+```
+
+### Reconciliação tardia para refund/chargeback
+
+`add_action('pagou_pix_reconcile_late', ...)` igual ao do WP plain mas com `$order->update_status('refunded', ...)` ou `'on-hold'` para chargeback (a definir conforme política da loja).
+
+### Notas
+
+- Em modo polling, **não** registar webhook URL no painel da Pagou. O endpoint REST continua a ser servido pelo plugin.
+- Configurar **system cron real** a chamar `wp-cron.php` é especialmente crítico em lojas WooCommerce com tráfego variável.
+- Se a loja já usa **Action Scheduler** (vem com WooCommerce), preferir `as_schedule_recurring_action()` em vez de `wp_schedule_event()` — é mais robusto para volume alto:
+
+  ```php
+  as_schedule_recurring_action(time(), 60, 'pagou_pix_poll');
+  as_schedule_recurring_action(time(), 900, 'pagou_pix_reconcile_late');
+  ```

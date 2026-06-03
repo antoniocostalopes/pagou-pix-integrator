@@ -9,7 +9,7 @@ Skill autônoma para integração PIX em projetos existentes utilizando a plataf
 
 ## Versão
 
-1.2.2
+2.0.0
 
 ## Escopo
 
@@ -38,16 +38,26 @@ Pix Out (transfers) e Subscriptions estão documentados em `KNOWLEDGE.md` para c
 
 ## Perguntas permitidas
 
-Apenas os 4 dados abaixo podem ser solicitados ao usuário:
+Apenas os 5 dados abaixo podem ser solicitados ao usuário:
 
 | Pergunta | Razão (impossível inferir) |
 |---|---|
 | `PAGOU_API_KEY` | Segredo — não pode estar no repositório |
 | Sandbox ou Produção | Decisão operacional do usuário |
-| URL pública do projeto | Necessária para registrar webhook na Pagou |
+| URL pública do projeto | Necessária para registrar webhook na Pagou (só se modo = webhook) |
 | Status internos desejados | Mapeamento de domínio (ex.: `paid` → `aprovado`, `confirmado`) |
+| Modo de confirmação de pagamento | `webhook` (recomendado, default) ou `polling` (opt-out, mais simples) |
 
 **Tudo o resto deve ser descoberto.** Framework, banco, ORM, sistema de auth, fluxo de checkout, tabela principal, padrão de pastas — nada disso pode ser perguntado.
+
+### Modo de confirmação — webhook vs polling
+
+A partir da versão 2.0.0 a Skill suporta **dois modos** de confirmação:
+
+- **`webhook` (default, recomendado)** — evento `transaction.paid` chega em tempo real. Robusto contra cliente fechar o browser, chargebacks tardios, e refunds manuais. Requer URL pública + registo no painel Pagou.
+- **`polling`** — sem URL pública, sem registo no painel. Background poller pergunta `GET /v2/transactions/{id}` periodicamente até estado terminal. Job de reconciliação roda em ciclo curto. Simplifica setup; perde eventos tardios e tem latência maior.
+
+O endpoint de webhook **é sempre gerado em ambos os modos** — em `polling` fica disponível mas não registado, permitindo upgrade futuro sem regenerar código.
 
 ## Comportamentos proibidos
 
@@ -55,7 +65,7 @@ Apenas os 4 dados abaixo podem ser solicitados ao usuário:
 - Modificar ficheiros antes de aprovação explícita (Human Approval Gate)
 - Deduplicar webhooks por `data.id` (id da transação) — só `event_id` (id de topo)
 - Expor `PAGOU_API_KEY` no frontend, browser, código cliente, repositório ou logs
-- Confirmar pagamento a partir de sucesso no browser (apenas via webhook ou GET de reconciliação)
+- Confirmar pagamento a partir de sucesso no browser (apenas via webhook, polling backend ou GET de reconciliação — nunca do retorno síncrono do POST de criação)
 - Tratar valores em reais — Pagou v2 trabalha em **centavos**
 - Inventar endpoints, campos ou status não documentados na OpenAPI da Pagou
 

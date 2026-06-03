@@ -7,9 +7,10 @@
 | Campo | Valor |
 |---|---|
 | Data | {{YYYY-MM-DD}} |
-| Versão da Skill | 1.0.0 |
+| Versão da Skill | 2.0.0 |
 | Pagou API | v2 |
 | Ambiente alvo | {{sandbox | production}} |
+| Modo de confirmação | {{webhook | polling}} |
 | Branch / commit | {{nome — sha}} |
 
 ## Resumo executivo
@@ -52,11 +53,25 @@ Status: ✓ aplicada em {{ambiente}}.
 | POST | `{{/api/webhooks/pagou}}` | pública | ✓ 200 `{received:true}` |
 | POST | `{{/admin/pagou/reconcile/:id}}` | admin | ✓ atualiza status |
 
-## Webhook na Pagou
+## Modo de confirmação escolhido
+
+**Modo:** `{{webhook | polling}}`
+
+### Se modo = `webhook`
 
 - [ ] Registrado no painel Pagou (URL: `{{https://app.exemplo.com/api/webhooks/pagou}}`)
 - [ ] Eventos selecionados: `transaction.*`
+- [ ] `PAGOU_WEBHOOK_SECRET` copiado do painel para o `.env`
 - [ ] Teste de entrega verificado (evento sandbox recebido)
+- [ ] Job de reconciliação **horário** ativo como fallback
+
+### Se modo = `polling`
+
+- [ ] Background poller `pagou:poll` agendado (frequência: cada 1 min)
+- [ ] Job de reconciliação `pagou:reconcile-late` agendado (frequência: cada 15 min)
+- [ ] Endpoint `/api/webhooks/pagou` continua disponível (não registado no painel — pode ser ativado depois)
+- [ ] Limitações conhecidas documentadas para a equipa (latência, custo de API, eventos tardios)
+- [ ] Plano para migrar para `webhook` quando volume justificar
 
 ## Evidências por categoria
 
@@ -141,6 +156,6 @@ Detalhes completos em `PAGOU_PIX_INTEGRATION_SCORE.md`.
 
 ## Pessoas envolvidas
 
-- Implementação: Skill `pagou-pix-integrator` v1.0.0 (Claude Code)
+- Implementação: Skill `pagou-pix-integrator` v2.0.0 (Claude Code)
 - Aprovação do plano: {{nome}} em {{data}}
 - Revisão técnica: {{nome}} em {{data}}

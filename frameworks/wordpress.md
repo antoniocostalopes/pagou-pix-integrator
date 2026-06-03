@@ -392,5 +392,84 @@ class Test_Pagou_Webhook extends WP_UnitTestCase {
 
 - Ativar plugin no admin
 - Configurar API key e ambiente
-- Registrar webhook URL na Pagou
+- Registrar webhook URL na Pagou (só se modo = `webhook`)
 - Disparar evento sandbox e verificar `wp_pagou_webhook_events`
+
+---
+
+## 11. Modo polling-only (v2.0.0+)
+
+Aplicar **apenas se** o utilizador respondeu `polling` à 5ª pergunta.
+
+### Background poller via wp-cron
+
+No activate do plugin:
+
+```php
+register_activation_hook(__FILE__, function () {
+    if (get_option('pagou_confirmation_mode') === 'polling') {
+        if (!wp_next_scheduled('pagou_pix_poll')) {
+            wp_schedule_event(time(), 'pagou_one_minute', 'pagou_pix_poll');
+        }
+        if (!wp_next_scheduled('pagou_pix_reconcile_late')) {
+            wp_schedule_event(time(), 'pagou_fifteen_minutes', 'pagou_pix_reconcile_late');
+        }
+    }
+});
+
+// Adicionar intervalos custom (wp-cron não os tem por defeito)
+add_filter('cron_schedules', function ($schedules) {
+    $schedules['pagou_one_minute']     = ['interval' => 60,   'display' => 'Pagou — every minute'];
+    $schedules['pagou_fifteen_minutes']= ['interval' => 900,  'display' => 'Pagou — every 15 minutes'];
+    return $schedules;
+});
+```
+
+### Handlers dos hooks
+
+```php
+add_action('pagou_pix_poll', function () {
+    global $wpdb;
+    $table = $wpdb->prefix . 'pagou_pix_transactions';
+    $rows = $wpdb->get_results(
+        "SELECT * FROM {$table}
+         WHERE status IN ('pending','created')
+         AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+         LIMIT 100"
+    );
+
+    foreach ($rows as $tx) {
+        try {
+            $remote = pagou_api_get("/v2/transactions/{$tx->pagou_transaction_id}");
+            if ($remote['status'] === $tx->status) continue;
+
+            $wpdb->update($table,
+                ['status' => $remote['status'], 'updated_at' => current_time('mysql')],
+                ['id' => $tx->id]
+            );
+
+            if (in_array($remote['status'], ['paid','expired','canceled','refused'])) {
+                pagou_propagate_to_order($tx->external_ref, $remote['status']);
+            }
+        } catch (\Throwable $e) {
+            error_log('pagou.poll.error ' . $e->getMessage());
+        }
+    }
+});
+
+add_action('pagou_pix_reconcile_late', function () {
+    // Mesmo padrão, mas filtrar por status IN ('paid','expired','canceled')
+    // e propagar refunded/partially_refunded/chargedback.
+});
+```
+
+### Limitações específicas do WordPress
+
+- **wp-cron depende de tráfego ao site** para disparar — em sites com pouco tráfego, configurar **system cron real** apontando para `wp-cron.php`:
+
+  ```cron
+  * * * * * curl -s https://seusite.com/wp-cron.php?doing_wp_cron > /dev/null
+  ```
+
+- Sem isto, a janela de 1 minuto não é confiável e pode disparar 5–10 min depois.
+- Em modo polling, a opção `pagou_confirmation_mode` é guardada em `wp_options` (registar via Settings API).

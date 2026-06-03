@@ -20,7 +20,20 @@ Use o template `templates/PAGOU_PIX_INTEGRATION_PLAN.md` para gerar o arquivo. S
 **Gateway existente:** nenhum
 **Modelo de pedido:** prisma.order
 **Status atual de pedido:** Order.status (enum)
+**Modo de confirmação escolhido:** webhook (default)  ← OU "polling" se utilizador optou
 ```
+
+### 1.b Consequências do modo escolhido
+
+Incluir uma das duas secções conforme escolha:
+
+**Se modo = `webhook`:**
+
+> O caminho de confirmação será webhook (recomendado). A Skill vai gerar o endpoint `/api/webhooks/pagou`, registar `PAGOU_WEBHOOK_SECRET` no `.env`, e criar um job de reconciliação **horário** como fallback. O utilizador precisa, após o deploy, registar a URL pública no painel da Pagou e colar o secret HMAC no `.env`.
+
+**Se modo = `polling`:**
+
+> O caminho de confirmação será polling backend. A Skill vai gerar um **background poller** que pergunta `GET /v2/transactions/{id}` cada 30s desde a criação até estado terminal ou expiração do PIX, e um **job de reconciliação a cada 15 minutos** que apanha estados pós-terminal (`refunded`, `chargedback`). O endpoint de webhook continua a ser gerado mas não precisa ser registado na Pagou. Limitações conhecidas: latência de confirmação ≈ 30s, custo de API maior, risco de perder eventos tardios se o job de reconciliação falhar.
 
 ### 2. Arquivos a CRIAR (com path completo a partir da raiz)
 
@@ -70,7 +83,7 @@ POST /api/webhooks/pagou
   Resp: { received: true }
 ```
 
-### 6. Webhook a registrar
+### 6. Webhook a registrar (só em modo webhook)
 
 ```
 URL pública: https://app.exemplo.com/api/webhooks/pagou
@@ -79,14 +92,35 @@ Eventos: transaction.* (ao menos transaction.paid, transaction.cancelled, transa
 
 Documentar que o registro deve ser feito **na dashboard Pagou** após o deploy. Não é a Skill que registra automaticamente (não está no escopo da OpenAPI pública).
 
-### 7. Variáveis de ambiente novas
+**Em modo polling:** esta secção desaparece do plano. O endpoint `/api/webhooks/pagou` continua a ser gerado mas o utilizador não precisa de registar nada.
+
+### 6.b Background poller (só em modo polling)
+
+```
+Job: PagouPixPoller
+Frequência: cada 30s, por transação, desde criação até estado terminal ou expiração
+Onde corre: depende do stack (Vercel Cron, Laravel Schedule, wp-cron, etc.)
+Endpoint chamado: GET https://{api-sandbox|api}.pagou.ai/v2/transactions/{id}
+```
+
+### 7. Job de reconciliação (gerado em ambos os modos)
+
+```
+Frequência: horário em modo webhook, cada 15 min em modo polling
+Função: apanhar eventos pós-terminal (refunded, chargedback) que o caminho principal pode ter perdido
+```
+
+### 8. Variáveis de ambiente novas
 
 ```
 PAGOU_API_KEY=
 PAGOU_ENV=sandbox
-PAGOU_BASE_URL=   # opcional
-PUBLIC_APP_URL=https://app.exemplo.com
+PAGOU_CONFIRMATION_MODE=webhook       # ou "polling"
+PAGOU_WEBHOOK_SECRET=                  # só relevante em modo webhook (preencher após registar webhook na Pagou)
+PUBLIC_APP_URL=https://app.exemplo.com # só relevante em modo webhook
 ```
+
+**Nota:** `PAGOU_API_URL` **não é variável de ambiente** — é derivado pelo cliente HTTP a partir de `PAGOU_ENV`.
 
 ## Pergunta final
 

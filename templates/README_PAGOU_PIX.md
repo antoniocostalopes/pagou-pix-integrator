@@ -9,22 +9,29 @@ Este documento descreve **como operar** a integração PIX no dia a dia. Para de
 ```bash
 PAGOU_API_KEY=                              # secret — apenas backend
 PAGOU_ENV=sandbox                           # sandbox | production
-PAGOU_BASE_URL=                             # opcional; default por ambiente
-PUBLIC_APP_URL=https://app.exemplo.com      # URL pública do projeto
+PAGOU_CONFIRMATION_MODE=webhook             # webhook (recomendado) | polling
+PAGOU_WEBHOOK_SECRET=                       # só relevante em modo webhook
+PUBLIC_APP_URL=https://app.exemplo.com      # só relevante em modo webhook
 ```
 
 Definir no `.env` local e no painel do provedor de deploy. **Nunca commitar.**
 
-### Base URLs
+> `PAGOU_API_URL` **não** é variável de ambiente — é derivado em runtime a partir de `PAGOU_ENV` pelo cliente HTTP.
 
-| `PAGOU_ENV` | URL |
+### Base URLs (derivadas de `PAGOU_ENV`)
+
+| `PAGOU_ENV` | URL escolhida pelo cliente |
 |---|---|
 | `sandbox` | `https://api-sandbox.pagou.ai` |
 | `production` | `https://api.pagou.ai` |
 
-### Registrar webhook na Pagou
+---
 
-1. Entrar no painel Pagou ({{link específico}})
+### Setup conforme `PAGOU_CONFIRMATION_MODE`
+
+#### Se modo = `webhook` (recomendado)
+
+1. Entrar no painel Pagou
 2. Ir em Webhooks → Adicionar
 3. URL: `{{PUBLIC_APP_URL}}/api/webhooks/pagou`
 4. Selecionar eventos:
@@ -34,26 +41,75 @@ Definir no `.env` local e no painel do provedor de deploy. **Nunca commitar.**
    - `transaction.cancelled`
    - `transaction.refunded`
    - `transaction.chargedback`
-5. Salvar e testar entrega
+5. Salvar — o painel devolve um **secret HMAC**
+6. Colar o secret no `.env` como `PAGOU_WEBHOOK_SECRET=...`
+7. Em produção, garantir que o secret está definido — sem ele a aplicação falha o boot (fail-closed)
+8. Testar entrega disparando um evento sandbox a partir do painel
+
+#### Se modo = `polling`
+
+Sem painel. Sem secret. A confirmação acontece via:
+
+1. **Background poller** (`pagou:poll`) que corre a cada minuto, consulta `GET /v2/transactions/{id}` para todas as transações pending na última hora, e propaga status terminais (`paid`, `expired`, `canceled`, `refused`) ao pedido interno.
+2. **Job de reconciliação** (`pagou:reconcile-late`) que corre a cada 15 min, consulta transações já terminais nos últimos 30 dias, e propaga estados pós-pagamento (`refunded`, `partially_refunded`, `chargedback`).
+
+Verificar que ambos os jobs estão agendados:
+
+| Stack | Como verificar |
+|---|---|
+| Next.js | `vercel.json` → secção `crons` lista 2 entradas |
+| Laravel | `php artisan schedule:list` mostra `pagou:poll` e `pagou:reconcile-late` |
+| WordPress | `wp cron event list` mostra `pagou_pix_poll` e `pagou_pix_reconcile_late` |
+| Outros | conforme scheduler do stack |
+
+**Limitações conhecidas em modo polling:**
+
+- Latência de confirmação ≈ 30s–1 min (depende da granularidade do scheduler).
+- Custo de API maior — N transações pending × frequência de polling.
+- Se o job de reconciliação tardia não correr durante mais de 30 dias, perdes refund/chargeback.
+- Se houver volume alto ou janela operacional crítica, considerar migrar para modo `webhook`.
 
 ## Fluxo de pagamento
 
+**Passos 1–7 são iguais em ambos os modos.** Os passos 8+ diferem conforme `PAGOU_CONFIRMATION_MODE`.
+
 ```
-1. Cliente clica "Pagar com PIX" no checkout
-2. Frontend chama POST {{/api/pagou/pix}} com { orderId }
-3. Backend chama POST /v2/transactions na Pagou
-4. Backend persiste em pagou_pix_transactions
-5. Backend retorna { pix_qr_code, pix_code, transaction_id, status: "pending" }
-6. Frontend renderiza QR + copia-e-cola
-7. Cliente paga pelo app do banco
-8. Pagou envia POST {{/api/webhooks/pagou}} com transaction.paid
-9. Backend valida + dedup + enfileira job
+1.  Cliente clica "Pagar com PIX" no checkout
+2.  Frontend chama POST {{/api/pagou/pix}} com { orderId }
+3.  Backend chama POST /v2/transactions na Pagou
+4.  Backend persiste em pagou_pix_transactions
+5.  Backend retorna { pix_qr_code, pix_code, transaction_id, status: "pending" }
+6.  Frontend renderiza QR + copia-e-cola
+7.  Cliente paga pelo app do banco
+```
+
+### Se modo = `webhook`
+
+```
+8.  Pagou envia POST {{/api/webhooks/pagou}} com transaction.paid (segundos depois)
+9.  Backend valida HMAC + dedup por event.id + enfileira job
 10. Job atualiza pagou_pix_transactions e marca order como pago
-11. Frontend faz polling do status do pedido (ou usa SSE/websocket) — encontra "pago"
+11. Frontend polling interno /api/orders/{id}/status detecta "pago"
 12. UX confirma sucesso ao cliente
 ```
 
-**A confirmação do pagamento sempre vem do webhook, nunca do sucesso do POST inicial.**
+### Se modo = `polling`
+
+```
+8.  Cliente continua na página (ou fecha — não importa!)
+9.  Background poller (corre cada 1 min) consulta GET /v2/transactions/{id}
+10. Detecta status="paid" → atualiza pagou_pix_transactions → marca order como pago
+11. Frontend polling interno /api/orders/{id}/status detecta "pago" (≈ 30-60s após pagar)
+12. UX confirma sucesso ao cliente
+
+— Mais tarde —
+
+13. Cliente pede refund / faz chargeback
+14. Job de reconciliação (cada 15 min) detecta novo status terminal
+15. Order é actualizada para refunded/chargeback
+```
+
+**Em ambos os modos, a confirmação NUNCA vem do retorno síncrono do POST inicial nem de polling do frontend à API Pagou.**
 
 ## Endpoints
 

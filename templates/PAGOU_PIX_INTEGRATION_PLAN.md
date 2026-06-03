@@ -19,7 +19,8 @@
 | Modelo de pedido | {{ex.: prisma.order}} |
 | Status atual de pedido | {{ex.: Order.status (enum interno)}} |
 | Ambiente Pagou escolhido | {{sandbox | production}} |
-| URL pública | {{ex.: https://app.exemplo.com}} |
+| Modo de confirmação | {{webhook (default) | polling}} |
+| URL pública | {{ex.: https://app.exemplo.com}} (só relevante se modo = webhook) |
 
 ## 2. Mapeamento de status
 
@@ -47,7 +48,7 @@
 
 | Arquivo | Mudança |
 |---|---|
-| `.env.example` | Adicionar `PAGOU_API_KEY`, `PAGOU_ENV`, `PAGOU_BASE_URL`, `PUBLIC_APP_URL` |
+| `.env.example` | Adicionar `PAGOU_API_KEY`, `PAGOU_ENV`, `PAGOU_CONFIRMATION_MODE`, `PAGOU_WEBHOOK_SECRET` (se webhook), `PUBLIC_APP_URL` (se webhook) |
 | `{{schema/migrations}}` | 2 novas tabelas |
 | `README.md` | Seção "PIX via Pagou" |
 | `{{outro}}` | {{descrição}} |
@@ -76,6 +77,8 @@
 
 ## 7. Webhook a registrar na Pagou
 
+**Se modo = `webhook`:**
+
 ```
 URL: {{https://app.exemplo.com/api/webhooks/pagou}}
 Eventos: transaction.created, transaction.pending, transaction.paid,
@@ -83,15 +86,38 @@ Eventos: transaction.created, transaction.pending, transaction.paid,
 ```
 
 > Registro feito manualmente no painel Pagou após o deploy.
+> Após registar, copiar o `PAGOU_WEBHOOK_SECRET` do painel para o `.env`.
+
+**Se modo = `polling`:** ignorar esta secção. O endpoint `/api/webhooks/pagou` continua a ser gerado mas o utilizador não precisa de registar nada no painel. O caminho de confirmação é polling backend (ver secção 7.b).
+
+## 7.b Background poller (só em modo polling)
+
+```
+Job: pagou:poll
+Frequência: cada 1 minuto (granularidade mínima da maioria dos schedulers)
+Janela: transações em status pending/created criadas na última 1h
+Endpoint: GET https://{api-sandbox|api}.pagou.ai/v2/transactions/{id}
+```
+
+## 7.c Job de reconciliação (gerado em ambos os modos)
+
+```
+Frequência: horária em modo webhook, cada 15 min em modo polling
+Janela: transações terminais criadas nos últimos 30 dias
+Propaga: refunded, partially_refunded, chargedback
+```
 
 ## 8. Variáveis de ambiente novas
 
 ```bash
 PAGOU_API_KEY=                              # secret — backend only
 PAGOU_ENV={{sandbox|production}}
-PAGOU_BASE_URL=                             # opcional; default por ambiente
-PUBLIC_APP_URL={{https://app.exemplo.com}}
+PAGOU_CONFIRMATION_MODE={{webhook|polling}} # decide caminho principal de confirmação
+PAGOU_WEBHOOK_SECRET=                       # só relevante em modo webhook (preencher após registar)
+PUBLIC_APP_URL={{https://app.exemplo.com}}  # só relevante em modo webhook
 ```
+
+**Nota:** `PAGOU_API_URL` **não é variável de ambiente**. É derivado pelo cliente HTTP a partir de `PAGOU_ENV` (mapa hardcoded `sandbox → api-sandbox.pagou.ai`, `production → api.pagou.ai`).
 
 ## 9. Testes a gerar
 

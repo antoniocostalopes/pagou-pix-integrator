@@ -716,3 +716,116 @@ php artisan migrate
 php artisan test
 php artisan route:list | grep pagou
 ```
+
+---
+
+## 11. Modo polling-only (v2.0.0+)
+
+Aplicar **apenas se** o utilizador respondeu `polling` à 5ª pergunta.
+
+### Background poller — Schedule task
+
+`app/Console/Kernel.php`:
+
+```php
+protected function schedule(Schedule $schedule): void
+{
+    // Poller curto: cada minuto, transações pending dentro do TTL
+    $schedule->command('pagou:poll')
+             ->everyMinute()
+             ->withoutOverlapping()
+             ->runInBackground();
+
+    // Reconciliação para eventos tardios: cada 15 min
+    $schedule->command('pagou:reconcile-late')
+             ->everyFifteenMinutes()
+             ->withoutOverlapping();
+}
+```
+
+### Comando `pagou:poll`
+
+`app/Console/Commands/PagouPoll.php`:
+
+```php
+<?php
+namespace App\Console\Commands;
+
+use App\Models\PagouPixTransaction;
+use App\Services\Pagou\PagouClient;
+use App\Services\Pagou\StatusMapper;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+
+class PagouPoll extends Command
+{
+    protected $signature = 'pagou:poll';
+    protected $description = 'Polls Pagou for status of non-terminal PIX transactions';
+
+    public function handle(PagouClient $pagou, StatusMapper $mapper): int
+    {
+        $candidates = PagouPixTransaction::query()
+            ->whereIn('status', ['pending', 'created'])
+            ->where('created_at', '>=', now()->subHour())
+            ->limit(100)
+            ->get();
+
+        $checked = 0;
+        $changed = 0;
+
+        foreach ($candidates as $tx) {
+            try {
+                $remote = $pagou->get("/v2/transactions/{$tx->pagou_transaction_id}");
+                $checked++;
+
+                if ($remote['status'] === $tx->status) {
+                    continue;
+                }
+
+                DB::transaction(function () use ($tx, $remote, $mapper) {
+                    $tx->update(['status' => $remote['status'], 'updated_at' => now()]);
+
+                    if (in_array($remote['status'], ['paid', 'expired', 'canceled', 'refused'])) {
+                        \App\Models\Order::where('id', $tx->external_ref)
+                            ->update(['status' => $mapper->internal($remote['status'])]);
+                    }
+                });
+
+                $changed++;
+            } catch (\Throwable $e) {
+                logger()->warning('pagou.poll.error', ['tx' => $tx->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        $this->info("Checked {$checked}, changed {$changed}");
+        return self::SUCCESS;
+    }
+}
+```
+
+### Comando `pagou:reconcile-late`
+
+Mesmo padrão mas a query procura transações **terminais** nos últimos 30 dias para apanhar `refunded`, `partially_refunded`, `chargedback`:
+
+```php
+PagouPixTransaction::query()
+    ->whereIn('status', ['paid', 'expired', 'canceled'])
+    ->where('created_at', '>=', now()->subDays(30))
+    ->limit(200)
+    ->get();
+```
+
+E na propagação ao pedido, lidar especificamente com os status pós-pagamento:
+
+```php
+if (in_array($remote['status'], ['refunded', 'partially_refunded', 'chargedback'])) {
+    Order::where('id', $tx->external_ref)
+        ->update(['status' => $mapper->internal($remote['status'])]);
+}
+```
+
+### Limitações
+
+- Custo: 100 transações × 1/min = 6 mil requests/h por hora de pico.
+- Latência ≈ 30s–1min (mínimo do Laravel Schedule).
+- `PAGOU_WEBHOOK_SECRET` continua opcional em modo polling. Endpoint webhook continua a existir mas nunca recebe tráfego.

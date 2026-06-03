@@ -42,7 +42,7 @@ Authorization: Basic base64(<PAGOU_API_KEY>:x)
 1. **Valores em centavos** — R$ 15,00 = `1500`
 2. **`external_ref` obrigatório** em todas as escritas — usar id interno do pedido (`order_1001`)
 3. **Idempotência** garantida pelo `external_ref` quando combinado com a lógica de "criar ou recuperar"
-4. **Webhooks são a fonte da verdade** — polling com GET só para reconciliação/recuperação/suporte
+4. **Webhooks são o padrão recomendado** — `GET /v2/transactions/{id}` é o caminho alternativo quando o utilizador escolhe `PAGOU_CONFIRMATION_MODE=polling` (sem URL pública / sem registo no painel). Em qualquer dos modos, **nunca** confirmar pagamento a partir do retorno síncrono do POST de criação ou de polling do browser à API Pagou
 5. **Cards** exigem Payment Element (SDK v3) — backend só recebe tokens `pgct_`
 6. **Não inventar** endpoints, campos ou status fora da OpenAPI
 
@@ -132,19 +132,21 @@ Content-Type: application/json
 
 > ⚠️ **Mesmo após chamar refund, espere o webhook** `transaction.refunded` para atualizar status interno. A chamada POST inicia o processo; o estorno bancário pode levar minutos a horas.
 
-## Consultar transação (reconciliação)
+## Consultar transação (polling ou reconciliação)
 
 ```
 GET /v2/transactions/{id}
 ```
 
-Use **apenas** para:
+**Em modo `webhook` (default da Skill):** use **apenas** para reconciliação — recuperar estado após erro/timeout, diagnóstico de suporte, job de reconciliação periódico. Nunca como fluxo principal de confirmação.
 
-- Recuperar estado após erro/timeout
-- Diagnóstico de suporte
-- Job de reconciliação noturna
+**Em modo `polling` (opt-out da Skill):** este endpoint **é** o fluxo principal de confirmação. Background poller no servidor pergunta a cada 30s desde a criação do PIX até estado terminal (`paid`, `expired`, `canceled`, `refused`) ou até `expiration` do PIX expirar. Frontend nunca chama directamente — pergunta a um endpoint interno (`/api/orders/:id/status`) que reflecte o estado já actualizado pelo poller.
 
-Nunca como fluxo principal.
+**Limitações conhecidas do modo polling** (a Skill documenta no `PAGOU_PIX_INTEGRATION_REPORT.md`):
+
+- Eventos tardios pós-terminal (`refunded`, `partially_refunded`, `chargedback`) só são apanhados pelo job de reconciliação periódico (que continua a pergunta para transações até 30 dias após criação). Risco real: se o job não correr ou tiver janela curta, perdes a notificação.
+- Latência de confirmação ≈ intervalo de polling (30s por defeito). UX "pago" demora segundos a aparecer.
+- Custo de API: N pedidos × (TTL / 30s) requests ao endpoint GET. Para 1000 PIX/dia com TTL 1h, ≈ 120 mil requests/dia.
 
 ## Status da transação
 

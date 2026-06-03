@@ -668,3 +668,141 @@ npm run build
 npm test
 npx prisma migrate status
 ```
+
+---
+
+## 11. Modo polling-only (v2.0.0+)
+
+Aplicar **apenas se** o utilizador respondeu `polling` à 5ª pergunta. Em modo `webhook` (default), saltar esta secção.
+
+### O que muda
+
+- O endpoint `/api/webhooks/pagou` continua a ser gerado (passos 6–7 acima) — não é registado no painel da Pagou, mas fica disponível para upgrade futuro.
+- **Adicionar background poller** que pergunta `GET /v2/transactions/{id}` cada 30s até estado terminal.
+- **Reconciliação** corre cada 15 min em vez de horária.
+
+### 11.1. Background poller via Vercel Cron
+
+`vercel.json` (criar ou completar):
+
+```json
+{
+  "crons": [
+    { "path": "/api/cron/pagou-pix-poll", "schedule": "*/1 * * * *" },
+    { "path": "/api/cron/pagou-pix-reconcile", "schedule": "*/15 * * * *" }
+  ]
+}
+```
+
+> O poller corre cada 1 min porque o granular mínimo da Vercel Cron é 1 min — não 30s. Para 30s real, usar Inngest / Trigger.dev.
+
+### 11.2. Endpoint do poller
+
+`app/api/cron/pagou-pix-poll/route.ts`:
+
+```ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { pagouFetch } from "@/lib/pagou/client";
+import { mapStatus } from "@/lib/pagou/status";
+
+export async function GET(req: Request) {
+  // Segurança básica: header secret (Vercel Cron envia automaticamente em prod)
+  const auth = req.headers.get("authorization");
+  if (process.env.NODE_ENV === "production" && auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // Transações ainda não-terminais e dentro da janela de expiração
+  const pending = await prisma.pagouPixTransaction.findMany({
+    where: {
+      status: { in: ["pending", "created"] },
+      createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) }, // 1h TTL típico
+    },
+    take: 100,
+  });
+
+  const results = await Promise.allSettled(pending.map(async (tx) => {
+    const remote = await pagouFetch("GET", `/v2/transactions/${tx.pagouTransactionId}`);
+    if (remote.status === tx.status) return { id: tx.id, changed: false };
+
+    await prisma.pagouPixTransaction.update({
+      where: { id: tx.id },
+      data: { status: remote.status, updatedAt: new Date() },
+    });
+
+    if (["paid", "expired", "canceled", "refused"].includes(remote.status)) {
+      await prisma.order.update({
+        where: { id: tx.externalRef },
+        data: { status: mapStatus(remote.status) },
+      });
+    }
+
+    return { id: tx.id, changed: true, newStatus: remote.status };
+  }));
+
+  return NextResponse.json({ checked: pending.length, results });
+}
+```
+
+### 11.3. Job de reconciliação para eventos tardios
+
+`app/api/cron/pagou-pix-reconcile/route.ts`:
+
+```ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { pagouFetch } from "@/lib/pagou/client";
+import { mapStatus } from "@/lib/pagou/status";
+
+export async function GET(req: Request) {
+  const auth = req.headers.get("authorization");
+  if (process.env.NODE_ENV === "production" && auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // Transações já-terminais nos últimos 30 dias — para apanhar refund/chargeback tardios
+  const terminal = await prisma.pagouPixTransaction.findMany({
+    where: {
+      status: { in: ["paid", "expired", "canceled"] },
+      createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+    },
+    take: 200,
+  });
+
+  const updates: Array<{ id: string; from: string; to: string }> = [];
+
+  for (const tx of terminal) {
+    try {
+      const remote = await pagouFetch("GET", `/v2/transactions/${tx.pagouTransactionId}`);
+      if (remote.status !== tx.status) {
+        await prisma.pagouPixTransaction.update({
+          where: { id: tx.id },
+          data: { status: remote.status, updatedAt: new Date() },
+        });
+
+        // Status terminal pós-pagamento (refunded/chargedback) propaga para o pedido
+        if (["refunded", "partially_refunded", "chargedback"].includes(remote.status)) {
+          await prisma.order.update({
+            where: { id: tx.externalRef },
+            data: { status: mapStatus(remote.status) },
+          });
+        }
+
+        updates.push({ id: tx.id, from: tx.status, to: remote.status });
+      }
+    } catch (err) {
+      console.error("reconcile failed", tx.id, err);
+    }
+  }
+
+  return NextResponse.json({ scanned: terminal.length, updates });
+}
+```
+
+### 11.4. Custo e limitações
+
+- **Custo de API:** 100 transações pending × 1 poll/min × 60 min = 6.000 requests/h por hora de pico. Considera rate limits da Pagou.
+- **Latência de confirmação:** ≈ 30s–1min (vs segundos em webhook).
+- **Risco de eventos tardios:** se o job de reconciliação não correr ou demorar mais que a janela de 30 dias, perdes refund/chargeback.
+- **`PAGOU_WEBHOOK_SECRET` continua a ser opcional** em modo polling — o endpoint existe mas como ninguém o chama, HMAC nunca é avaliado. Recomendação: deixar vazio em dev/MVP, definir antes de mudar para modo webhook.

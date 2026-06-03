@@ -4,7 +4,7 @@
 
 ### Plugin para Claude Code que integra PIX via Pagou.ai em qualquer projeto existente — com descoberta automática, aprovação humana, testes, validação e score técnico.
 
-[![Version](https://img.shields.io/badge/version-1.2.2-blue.svg?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg?style=for-the-badge)](./CHANGELOG.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-D97706?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.com/claude-code)
 [![PT-BR](https://img.shields.io/badge/lang-PT--BR-009C3B?style=for-the-badge)](#)
 
@@ -70,7 +70,8 @@ Em vez de leres documentação, copiares snippets e adaptares para o teu stack, 
 |---|---|
 | 🔍 **Descoberta automática** | Analisa `package.json`, `composer.json`, `wp-config.php`, ORM, rotas, auth, fluxo de checkout — **sem perguntar** |
 | 🤝 **Human Approval Gate** | Antes de modificar qualquer arquivo, apresenta plano explícito com lista de mudanças |
-| ❓ **Só 4 perguntas** | API key, ambiente, URL pública, status internos — tudo o resto é inferido |
+| ❓ **Só 5 perguntas** | API key, ambiente, modo (webhook/polling), URL pública (se webhook), status internos — tudo o resto é inferido |
+| 🔄 **Modo configurável** | A partir de 2.0.0, escolhes entre webhook (recomendado) ou polling-only (mais simples, sem URL pública) |
 | 🔐 **HMAC nos webhooks** | `HMAC-SHA256` no header `X-Pagou-Signature` com comparação em tempo constante; fail-closed em produção |
 | 🛡️ **Segurança built-in** | API key apenas backend, valores em centavos, sem segredos em logs ou commits |
 | 🔁 **Idempotência tripla** | Upsert por `external_ref`, UNIQUE em `event_id`, no-regress em status terminais |
@@ -192,12 +193,15 @@ Se preferires não memorizar o nome do comando, a Skill também é acionada por 
 >
 > _"Implementa pagamento PIX aqui."_
 
-Em ambos os casos a Skill cuida do resto. Só precisas de **4 informações** — tudo o resto é descoberto:
+Em ambos os casos a Skill cuida do resto. Só precisas de **5 informações** — tudo o resto é descoberto:
 
 1. 🔑 **`PAGOU_API_KEY`** — chave da tua conta Pagou
 2. 🌐 **Ambiente** — sandbox ou produção
-3. 🔗 **URL pública** do projeto (para registar o webhook)
-4. 🏷️ **Status internos** — como mapear `paid` → `pago` no teu domínio
+3. 🔄 **Modo de confirmação** — `webhook` (recomendado, robusto) ou `polling` (sem URL pública, mais simples)
+4. 🔗 **URL pública** do projeto (só se escolheres `webhook` — para registar o webhook na Pagou)
+5. 🏷️ **Status internos** — como mapear `paid` → `pago` no teu domínio
+
+> 💡 **`PAGOU_API_URL` não é perguntado.** É derivado em runtime a partir de `PAGOU_ENV` (`sandbox` → `api-sandbox.pagou.ai`, `production` → `api.pagou.ai`).
 
 ---
 
@@ -226,7 +230,7 @@ Encodados em `CLAUDE.md` e validados em cada checklist:
 | `PAGOU_API_KEY` no browser | Apenas backend, validado por grep negativo |
 | Webhook sem verificação | HMAC-SHA256 obrigatório em produção (fail-closed) |
 | Dedup por `data.id` (transação) | Dedup por `event.id` (top-level) — uma transação emite N eventos |
-| `setStatus('paid')` após sucesso no browser | Estado final **só** via webhook ou GET de reconciliação |
+| `setStatus('paid')` após sucesso no POST inicial | Estado final **só** via webhook, polling backend ou GET de reconciliação — nunca pelo retorno síncrono |
 | Valores em reais | Sempre em **centavos** (Pagou v2) — verificado por teste |
 | Esquecer `external_ref` | Sempre presente — base de idempotência e reconciliação |
 | Webhook handler com lógica pesada inline | ACK rápido `{"received": true}` + processamento assíncrono |
@@ -397,7 +401,7 @@ Em escopo: forjar webhooks, vazar segredos, bypass do Approval Gate, SQL injecti
 
 ## 📅 Changelog
 
-Versão atual: **`1.2.2`** — destaca o slash command `/pagou-pix-integrator` como caminho canónico de invocação e clarifica a descoberta da Skill no README.
+Versão atual: **`2.0.0`** — modo de confirmação configurável (webhook recomendado vs polling-only). Adiciona 5ª pergunta no fluxo Confirmar. Background poller + reconciliação a cada 15 min em modo polling. BREAKING: contrato de 4 perguntas passa para 5; consumidores que dependiam do invariante "webhook sempre" devem ler o changelog.
 
 Histórico completo em [`CHANGELOG.md`](./CHANGELOG.md).
 

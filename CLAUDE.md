@@ -43,7 +43,7 @@ Leia, sem perguntar:
 - Convenção de testes do projeto
 - Padrão de organização (MVC, hexagonal, modules, etc.)
 
-**Critério de saída:** Você tem ≥ 90% do contexto. Os únicos buracos restantes são os 4 perguntáveis (PAGOU_API_KEY, env, URL pública, status internos).
+**Critério de saída:** Você tem ≥ 90% do contexto. Os únicos buracos restantes são os 5 perguntáveis (PAGOU_API_KEY, env, URL pública, status internos, modo de confirmação).
 
 ---
 
@@ -52,14 +52,16 @@ Leia, sem perguntar:
 Antes de **qualquer** modificação no projeto, gere `PAGOU_PIX_INTEGRATION_PLAN.md` a partir de `templates/PAGOU_PIX_INTEGRATION_PLAN.md` contendo:
 
 - Resumo da descoberta (framework, DB, ORM, etc.)
+- **Modo de confirmação escolhido** (`webhook` ou `polling`) e suas consequências
 - **Lista exata** de arquivos a criar
 - **Lista exata** de arquivos a modificar (com trecho/intenção)
 - Mudanças na base de dados (migration completa)
 - Endpoints a expor (path, método, auth)
-- Webhook a registrar (path, payload esperado)
+- Webhook a registrar (path, payload esperado) — só se modo = webhook
+- Job de polling + reconciliação curta — só se modo = polling
 - Variáveis de ambiente novas
 
-Em seguida, **pergunte os 4 dados permitidos** usando `prompts/missing-data.md`, e solicite aprovação explícita:
+Em seguida, **pergunte os 5 dados permitidos** usando `prompts/missing-data.md`, e solicite aprovação explícita:
 
 > "Posso prosseguir com este plano? (sim/não/ajustar)"
 
@@ -79,14 +81,16 @@ Use o adapter de framework correspondente em `frameworks/`:
 
 Implemente nesta ordem:
 
-1. **Configuração** (env vars, config file)
-2. **Migração de DB** (tabela `pagou_pix_transactions` + tabela `pagou_webhook_events` para idempotência)
+1. **Configuração** (env vars, config file — incluir `PAGOU_CONFIRMATION_MODE` com valor do utilizador)
+2. **Migração de DB** (tabela `pagou_pix_transactions` + tabela `pagou_webhook_events` para idempotência — esta última necessária em ambos os modos)
 3. **Cliente Pagou** (wrapper HTTP com auth, base URL por ambiente, tratamento de erros)
 4. **Serviço PIX** (criar cobrança, consultar status)
 5. **Endpoint público** (criar cobrança PIX para o frontend)
-6. **Endpoint de webhook** (`POST /webhooks/pagou`)
-7. **Status mapping** (Pagou → status interno do projeto)
-8. **Tratamento de erros** + logging seguro (sem segredos)
+6. **Endpoint de webhook** (`POST /webhooks/pagou`) — gerado em ambos os modos; em modo `polling` fica disponível mas o utilizador não regista no painel
+7. **Background poller curto** — gerado **só se modo = polling**: pergunta `GET /v2/transactions/{id}` cada 30s até estado terminal ou expiração do PIX
+8. **Job de reconciliação** — sempre gerado; frequência depende do modo (modo webhook = horário; modo polling = a cada 15 min para apanhar eventos tardios como chargedback)
+9. **Status mapping** (Pagou → status interno do projeto)
+10. **Tratamento de erros** + logging seguro (sem segredos)
 
 **Regras inegociáveis durante a implementação:**
 
@@ -95,7 +99,8 @@ Implemente nesta ordem:
 - Sempre incluir `external_ref` (use o id interno do pedido)
 - Webhook ACK rápido: responder `{"received": true}` com status 200 antes de processar lógica pesada (idealmente enfileirar)
 - Deduplicar por **`event.id`** (top-level), **nunca** `data.id`
-- Confirmar pedido só por webhook ou GET de reconciliação — **nunca** por sucesso no browser
+- Confirmar pedido só por webhook, polling backend ou GET de reconciliação — **nunca** pelo retorno síncrono do POST de criação ou por polling do browser à API Pagou
+- Em modo `polling`: o frontend continua a fazer polling **a um endpoint interno** (`/api/orders/:id/status`), nunca à Pagou directamente. A própria Pagou nunca é chamada do browser.
 
 ---
 
@@ -159,7 +164,8 @@ Se score < 90, listar explicitamente o que falta para chegar a 90+.
 | `fetch('https://api.pagou.ai/...', { headers: { Authorization: ... } })` no client | Chamada autenticada no browser |
 | `if (event.id === lastEventId) skip` em memória | Dedup volátil — usar tabela persistente |
 | `WHERE transaction_id = ?` para dedup | PRD explícito: dedup só por event_id |
-| `setStatus('paid')` direto após resposta da Pagou | Status final só por webhook |
+| `setStatus('paid')` direto após resposta do POST de criação | Status final só por webhook, polling backend, ou reconciliação |
+| `setInterval(() => fetch('https://api.pagou.ai/...'))` no browser | Browser nunca chama Pagou directamente (vaza chave) |
 | `console.log(payload)` com api key visível | Vazamento em logs |
 | `amount: order.totalBRL` (sem * 100) | Pagou v2 usa centavos |
 

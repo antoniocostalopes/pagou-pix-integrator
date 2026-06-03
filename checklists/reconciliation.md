@@ -1,5 +1,22 @@
 # Checklist — Reconciliação
 
+**Aplicabilidade:** sempre aplica, mas com **rigor diferente conforme o modo**:
+
+- **Modo `webhook` (default):** reconciliação é **fallback** — corre horária, apanha webhooks perdidos. Items "Críticos" obrigatórios; "Importantes" recomendados.
+- **Modo `polling`:** reconciliação é o **único caminho** para detectar eventos pós-terminal (`refunded`, `partially_refunded`, `chargedback`). **Todos os itens "Críticos" + "Importantes" são obrigatórios.** Adicionalmente, há novo item crítico abaixo sobre o **background poller curto** que é específico do modo polling.
+
+## Crítico em modo `polling` (não aplicável em webhook)
+
+- [ ] **Background poller curto agendado.** Job que corre cada 1 minuto, consulta `GET /v2/transactions/{id}` para transações `pending`/`created` criadas na última 1h, e propaga status terminais para o pedido.
+  - Verificar que está agendado (via scheduler do framework: `vercel.json crons`, `php artisan schedule:list`, `wp cron event list`, etc.)
+  - Cobertura: 100% das transações pending dentro da janela de 1h passam por este job
+  - Limite máximo de execução: < 30s por iteração (não bloquear o scheduler)
+  - Teste manual: criar PIX em sandbox → não tocar no painel → aguardar 2 min → confirmar que pagamento manual no app do banco aparece como `paid` no sistema interno
+
+- [ ] **`pagou:reconcile-late` corre a cada 15 min** (em vez de horária do modo webhook).
+  - Janela: transações terminais criadas nos últimos 30 dias
+  - Propaga refunded/partially_refunded/chargedback para o pedido
+
 ## Críticos
 
 - [ ] **Função `reconcile(transaction_id)` existe** e chama `GET /v2/transactions/:id` na Pagou.

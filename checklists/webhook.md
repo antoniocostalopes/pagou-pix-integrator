@@ -1,5 +1,7 @@
 # Checklist — Webhook
 
+**Aplicabilidade:** este checklist aplica-se na íntegra **se `PAGOU_CONFIRMATION_MODE=webhook`** (default). Em modo `polling`, o endpoint continua a existir e os itens de implementação (HMAC, dedup, validação) **continuam a ser verificados** (porque o código tem de estar correcto caso o utilizador active webhook depois), mas os itens operacionais (registo no painel, teste de entrega real) são marcados N/A com nota *"diferido — modo polling activo"*. Em paralelo, validar `checklists/reconciliation.md` que passa a ser onde mora a confiança do pagamento.
+
 ## Críticos
 
 - [ ] **Endpoint público acessível.** `POST {{PUBLIC_URL}}/api/webhooks/pagou` retorna `200 { received: true }` com qualquer JSON válido — testado com `curl` real do exterior.

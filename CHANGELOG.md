@@ -4,6 +4,51 @@ Todas as mudanças notáveis nesta Skill são documentadas aqui.
 
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e a versão segue [SemVer](https://semver.org/lang/pt-BR/).
 
+## [2.0.0] — 2026-06-03
+
+Modo de confirmação de pagamento agora é **configurável** — webhook (default, recomendado) ou polling-only (opt-out, mais simples).
+
+### ⚠️ BREAKING CHANGES
+
+- **Contrato de perguntas passa de 4 para 5.** A Skill agora pergunta também `PAGOU_CONFIRMATION_MODE` (`webhook` | `polling`). Consumidores que dependiam da lista canónica de 4 perguntas em `prompts/missing-data.md` têm de atualizar expectativa.
+- **Invariante "webhook sempre obrigatório" relaxado** para "webhook é o default recomendado". Em modo `polling`, o utilizador pode legitimamente nunca registar o webhook no painel da Pagou. O endpoint continua a ser gerado em ambos os modos para permitir upgrade futuro sem regenerar código.
+- **`KNOWLEDGE.md` regra de ouro #4 reescrita:** de *"Webhooks são a fonte da verdade — polling com GET só para reconciliação/recuperação/suporte"* para *"Webhooks são o padrão recomendado; GET é o caminho alternativo quando o utilizador escolhe `PAGOU_CONFIRMATION_MODE=polling`"*.
+- **Checklists** `webhook.md` e `reconciliation.md` agora têm secções condicionais por modo. Itens operacionais do webhook (registo no painel, secret HMAC) ficam N/A em modo `polling`. Itens de reconciliação tornam-se mais rigorosos em modo `polling`.
+
+### Adicionado
+
+- **5ª pergunta — modo de confirmação** em `prompts/missing-data.md`. Default = `webhook`. Aceita também `polling` / `p` / `2` / `só polling`.
+- **Background poller curto** (`pagou:poll` / cron equivalente) gerado em todos os 5 adapters (`nextjs`, `laravel`, `wordpress`, `woocommerce`, `generic`) quando modo = `polling`. Corre cada 1 minuto, consulta `GET /v2/transactions/{id}` para transações pending na última hora, propaga status terminais para o pedido.
+- **Job de reconciliação tardia** (`pagou:reconcile-late`) — gerado em ambos os modos, frequência depende do modo (horária em webhook, cada 15 min em polling). Apanha eventos pós-pagamento (`refunded`, `partially_refunded`, `chargedback`) que o caminho principal pode ter perdido.
+- **Variável de ambiente `PAGOU_CONFIRMATION_MODE`** (`webhook` | `polling`) — sempre presente no `.env.example` gerado.
+- Templates `PAGOU_PIX_INTEGRATION_PLAN.md`, `PAGOU_PIX_INTEGRATION_REPORT.md` e `README_PAGOU_PIX.md` ganham secções condicionais por modo, incluindo limitações conhecidas em modo polling (latência, custo de API, eventos tardios).
+
+### Alterado
+
+- **`SKILL.md` secção "Perguntas permitidas"** passa de tabela de 4 para tabela de 5 + nova subsecção "Modo de confirmação — webhook vs polling".
+- **`CLAUDE.md` Fase 2** lista 5 perguntáveis; Fase 3 menciona ramificação por modo na ordem de implementação (passos 6, 7 e 8 explicitam dependência do modo).
+- **`prompts/integration-plan.md`** plano gerado mostra modo escolhido + consequências (webhook → registo no painel; polling → poller + reconciliação 15 min).
+- **`prompts/webhook-integration.md`** introdução explicita que o endpoint é gerado em ambos os modos.
+- **`prompts/reconciliation.md`** explicitamente tratado como caminho principal em modo polling, fallback em modo webhook.
+- **Adapters de framework** (`nextjs.md`, `laravel.md`, `wordpress.md`, `woocommerce.md`, `generic.md`) ganham secção final "Modo polling-only" com código/pseudocódigo específico do scheduler de cada stack (Vercel Cron, Laravel Schedule, wp-cron, Action Scheduler do WooCommerce, padrões genéricos).
+- **README.md** secção "Uso" passa a listar 5 dados; tabela de features ganha entrada "Modo configurável"; secção "Princípios não-negociáveis" ajusta a linha "estado final só por webhook" para incluir polling backend e reconciliação.
+
+### Removido
+
+- Linguagem "obrigatório no PRD" em torno de webhook no `prompts/missing-data.md` — passa a "padrão recomendado".
+
+### Não alterado
+
+- **Endpoint de webhook é sempre gerado** — em ambos os modos. Permite upgrade futuro sem regenerar.
+- HMAC-SHA256, dedup por `event.id` top-level, ACK rápido, idempotência tripla, valores em centavos, `external_ref` obrigatório, fail-closed em prod — todos os invariantes técnicos da API Pagou v2 mantêm-se. O que muda é o caminho operacional, não o contrato da API.
+- Status mapping default em PT-BR, anti-padrões automáticos, fluxo das 6 fases, scoring 0–100.
+
+### Migração de 1.2.x para 2.0.0
+
+Quem actualiza e corre a Skill num projeto novo: nada muda no comportamento default — é-lhe feita a 5ª pergunta e se carregar Enter / responder "webhook", o resultado é equivalente ao 1.2.2.
+
+Quem actualiza e corre a Skill num projeto já integrado: a Skill detecta no Descobrir que existe `pagou_pix_transactions` + `pagou_webhook_events` e pode propor mudança de modo via aprovação humana — sem regenerar o que já está.
+
 ## [1.2.2] — 2026-06-03
 
 Release de descoberta. Sem alteração funcional — só clarifica como o utilizador final invoca a Skill.

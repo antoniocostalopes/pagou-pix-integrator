@@ -2,20 +2,27 @@
 
 **Objetivo:** garantir que estados ambíguos ou perdidos possam ser recuperados via `GET /v2/transactions/{id}`.
 
+## Aplicabilidade por modo
+
+- **Modo `webhook` (default):** reconciliação é **fallback** — corre horário para apanhar webhooks perdidos. Webhook continua a ser o caminho principal.
+- **Modo `polling`:** existem **dois componentes** baseados em GET:
+  1. **Background poller curto** — pergunta cada 30s desde criação até estado terminal (`paid`, `expired`, `canceled`, `refused`) ou até expiração do PIX. Este é o caminho principal de confirmação. Ver `frameworks/<stack>.md` para implementação por stack.
+  2. **Job de reconciliação** — corre a cada 15 min (mais frequente que em modo webhook) e apanha estados pós-terminal (`refunded`, `partially_refunded`, `chargedback`) que o poller curto já parou de observar. Lógica idêntica à descrita aqui.
+
 ## Quando usar reconciliação
 
-Cenário | Ação
----|---
-Webhook perdido (Pagou tentou entregar e falhou) | Reconciliar transação após X minutos sem update
-Resposta da Pagou perdida no `POST /v2/transactions` (timeout) | Reconciliar usando `external_ref` (se Pagou suportar listing por `external_ref`) ou re-tentar criação idempotente
-Suporte ao cliente perguntando "paguei mas não atualizou" | Reconciliar manualmente
-Job noturno de saúde | Reconciliar todas as transações em `pending` há mais de 24h
+Cenário | Modo webhook | Modo polling
+---|---|---
+Webhook perdido (Pagou tentou entregar e falhou) | Reconciliar após X minutos sem update | N/A (não há webhook a perder)
+Resposta da Pagou perdida no `POST /v2/transactions` (timeout) | Reconciliar usando `external_ref` ou re-tentar criação idempotente | Igual
+Suporte ao cliente perguntando "paguei mas não atualizou" | Reconciliar manualmente | Reconciliar manualmente
+Job de saúde | Horário, transações em `pending` há mais de 1h | Cada 15 min, transações terminais há mais de 1h (apanha refund/chargeback tardio)
 
-## Reconciliação não é o fluxo principal
+## Em ambos os modos: não confundir com polling do frontend
 
-**PRD:** "Use GET polling only for reconciliation, support, or recovery, never as the primary flow."
+**Frontend nunca chama a Pagou directamente** em modo nenhum. Em ambos os modos o frontend pergunta a um endpoint interno (`/api/orders/:id/status`) que reflecte o estado já actualizado pelo backend (via webhook ou via poller backend, conforme o modo).
 
-Concretamente: **nunca** mover um pedido para "pago" sem evento de webhook ou GET de reconciliação. **Nunca** ficar fazendo `setInterval(checkStatus, 5000)` no frontend.
+`setInterval(checkStatus, 5000)` no frontend a chamar `/api/orders/:id/status` continua a ser **válido** — é polling interno para UI reagir. Chamar `https://api.pagou.ai/...` do browser **nunca** é válido (vaza a chave).
 
 ## Serviço de reconciliação
 

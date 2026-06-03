@@ -342,3 +342,87 @@ Independente do stack, o frontend faz **exactamente** três coisas:
 | .NET | Hosted background services + channel ou MassTransit |
 
 Se o projeto não tem fila e o tráfego é baixo, retornar 200 ao webhook e processar inline desde que < 5s. Documentar a limitação no `PAGOU_PIX_INTEGRATION_REPORT.md`.
+
+---
+
+## Modo polling-only (v2.0.0+)
+
+Aplicar **apenas se** o utilizador respondeu `polling` à 5ª pergunta. O endpoint de webhook continua a ser gerado (ver acima); a diferença é que **não é registado no painel da Pagou** e o caminho principal de confirmação passa a ser polling backend.
+
+### Pseudocódigo do background poller
+
+```pseudo
+every 30s OR every 1 minute (conforme granularidade do scheduler):
+    candidates = SELECT * FROM pagou_pix_transactions
+                 WHERE status IN ('pending', 'created')
+                 AND created_at >= NOW() - INTERVAL 1 HOUR
+
+    for tx in candidates:
+        remote = pagouFetch("GET", "/v2/transactions/" + tx.pagou_transaction_id)
+
+        if remote.status == tx.status:
+            continue
+
+        BEGIN TRANSACTION:
+            UPDATE pagou_pix_transactions
+               SET status = remote.status, updated_at = NOW()
+             WHERE id = tx.id
+
+            if remote.status in ('paid', 'expired', 'canceled', 'refused'):
+                UPDATE orders
+                   SET status = mapStatus(remote.status)
+                 WHERE id = tx.external_ref
+        COMMIT
+```
+
+### Pseudocódigo da reconciliação tardia (eventos pós-terminal)
+
+```pseudo
+every 15 minutes:
+    candidates = SELECT * FROM pagou_pix_transactions
+                 WHERE status IN ('paid', 'expired', 'canceled')
+                 AND created_at >= NOW() - INTERVAL 30 DAY
+
+    for tx in candidates:
+        remote = pagouFetch("GET", "/v2/transactions/" + tx.pagou_transaction_id)
+
+        if remote.status != tx.status
+           AND remote.status in ('refunded', 'partially_refunded', 'chargedback'):
+
+            UPDATE pagou_pix_transactions SET status = remote.status, updated_at = NOW() WHERE id = tx.id
+            UPDATE orders SET status = mapStatus(remote.status) WHERE id = tx.external_ref
+```
+
+### Implementação por stack
+
+| Stack | Onde rodar o poller curto (1 min) | Onde rodar a reconciliação tardia (15 min) |
+|---|---|---|
+| Express/Fastify | `node-cron` ou BullMQ repeatable job | mesmo |
+| Django | Celery beat | mesmo |
+| FastAPI | APScheduler ou cron externo | mesmo |
+| Rails | `whenever` ou Sidekiq Cron | mesmo |
+| Go | `time.NewTicker` em goroutine + persistência outbox | mesmo |
+| .NET | Hosted background service com `PeriodicTimer` | mesmo |
+| Cron externo (k8s CronJob, systemd timer) | `* * * * *` chamando endpoint /cron/poll | `*/15 * * * *` chamando /cron/reconcile-late |
+
+### Frontend em modo polling
+
+O frontend continua a fazer polling a um endpoint **interno** (`/api/orders/:id/status`), igual ao modo webhook. A diferença está só no backend — em vez do estado ser actualizado pelo handler do webhook, é actualizado pelo background poller.
+
+```pseudo
+// no frontend (cliente)
+every 3-5 seconds:
+    res = GET /api/orders/{order_id}/status
+    if res.status == 'pago':
+        showSuccess()
+        clearInterval()
+```
+
+**Browser nunca chama** `https://api.pagou.ai/...` directamente — em modo nenhum.
+
+### Limitações conhecidas (documentar no relatório)
+
+- Latência de confirmação ≈ intervalo de polling (30s–1 min).
+- Custo de API: N transações × (TTL / intervalo) requests.
+- Eventos tardios (`refunded`, `chargedback`) só apanhados se a reconciliação correr e a janela de 30 dias cobrir.
+- `PAGOU_WEBHOOK_SECRET` opcional em modo polling — só relevante se mudar para webhook.
