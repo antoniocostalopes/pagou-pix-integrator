@@ -18,7 +18,7 @@
 | Gateway atual | {{nenhum / Stripe / MP / etc.}} |
 | Modelo de pedido | {{ex.: prisma.order}} |
 | Status atual de pedido | {{ex.: Order.status (enum interno)}} |
-| Ambiente Pagou escolhido | {{sandbox | production}} |
+| API Pagou alvo | `https://api.pagou.ai` (constante; Skill v3+ não suporta sandbox) |
 | Modo de confirmação | {{webhook (default) | polling}} |
 | URL pública | {{ex.: https://app.exemplo.com}} (só relevante se modo = webhook) |
 
@@ -48,7 +48,7 @@
 
 | Arquivo | Mudança |
 |---|---|
-| `.env.example` | Adicionar `PAGOU_API_KEY`, `PAGOU_ENV`, `PAGOU_CONFIRMATION_MODE`, `PAGOU_WEBHOOK_SECRET` (se webhook), `PUBLIC_APP_URL` (se webhook) |
+| `.env.example` | Adicionar `PAGOU_API_KEY`, `PAGOU_CONFIRMATION_MODE`, `PAGOU_WEBHOOK_SECRET` (se webhook), `PUBLIC_APP_URL` (se webhook) — **sem** `PAGOU_ENV` nem `PAGOU_BASE_URL` |
 | `{{schema/migrations}}` | 2 novas tabelas |
 | `README.md` | Seção "PIX via Pagou" |
 | `{{outro}}` | {{descrição}} |
@@ -96,7 +96,7 @@ Eventos: transaction.created, transaction.pending, transaction.paid,
 Job: pagou:poll
 Frequência: cada 1 minuto (granularidade mínima da maioria dos schedulers)
 Janela: transações em status pending/created criadas na última 1h
-Endpoint: GET https://{api-sandbox|api}.pagou.ai/v2/transactions/{id}
+Endpoint: GET https://api.pagou.ai/v2/transactions/{id}
 ```
 
 ## 7.c Job de reconciliação (gerado em ambos os modos)
@@ -110,14 +110,13 @@ Propaga: refunded, partially_refunded, chargedback
 ## 8. Variáveis de ambiente novas
 
 ```bash
-PAGOU_API_KEY=                              # secret — backend only
-PAGOU_ENV={{sandbox|production}}
+PAGOU_API_KEY=                              # secret — backend only — chave de PRODUÇÃO
 PAGOU_CONFIRMATION_MODE={{webhook|polling}} # decide caminho principal de confirmação
 PAGOU_WEBHOOK_SECRET=                       # só relevante em modo webhook (preencher após registar)
 PUBLIC_APP_URL={{https://app.exemplo.com}}  # só relevante em modo webhook
 ```
 
-**Nota:** `PAGOU_API_URL` **não é variável de ambiente**. É derivado pelo cliente HTTP a partir de `PAGOU_ENV` (mapa hardcoded `sandbox → api-sandbox.pagou.ai`, `production → api.pagou.ai`).
+**Nota:** `PAGOU_API_URL` **não é variável de ambiente**. É constante hardcoded `https://api.pagou.ai` no cliente HTTP. Skill v3+ não suporta sandbox nem override por env var. Para dev local sem cobranças reais, usar `tools/pagou-mock/` no repo da Skill.
 
 ## 9. Testes a gerar
 

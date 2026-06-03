@@ -25,7 +25,7 @@ Cada categoria tem ~5 critérios. Cada critério vale uma fração do peso. Se a
 | `.env.example` atualizado com todas as variáveis Pagou | 3 |
 | `.env` está no `.gitignore` (verificado) | 2 |
 | Variáveis lidas só no servidor (zero ocorrências em arquivos client) | 3 |
-| Base URL por ambiente (sandbox vs prod) configurada corretamente | 3 |
+| Base URL `https://api.pagou.ai` hardcoded no cliente (sem env var configurável; Skill v3+ não suporta sandbox) | 3 |
 | Documentação operacional em `README_PAGOU_PIX.md` | 4 |
 
 ### Arquitetura (15)

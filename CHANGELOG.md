@@ -4,6 +4,68 @@ Todas as mudanças notáveis nesta Skill são documentadas aqui.
 
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e a versão segue [SemVer](https://semver.org/lang/pt-BR/).
 
+## [3.0.0] — 2026-06-03
+
+Remove totalmente o suporte a sandbox. A Skill agora chama **apenas produção** (`https://api.pagou.ai`). Para dev/CI sem cobranças reais, `tools/pagou-mock/` (incluído no repo) é o caminho suportado.
+
+### ⚠️ BREAKING CHANGES
+
+- **Lista canónica de perguntas passa de 5 para 4.** A pergunta "Sandbox ou Produção" desaparece. As 4 perguntas actuais: API key, modo de confirmação, URL pública (se webhook), status internos.
+- **Variável de ambiente `PAGOU_ENV` removida** de todos os adapters, templates, prompts e docs. Cliente HTTP deixa de a ler.
+- **Variável de ambiente `PAGOU_BASE_URL` removida.** Não há mais override do base URL — é constante hardcoded.
+- **Em todos os 5 adapters de framework, o mapa `{sandbox, production} → URL` é substituído por uma constante**:
+  - `frameworks/nextjs.md` — `const PAGOU_BASE_URL = "https://api.pagou.ai"`
+  - `frameworks/laravel.md` — `private const BASE_URL = 'https://api.pagou.ai'`
+  - `frameworks/wordpress.md` — `const BASE = 'https://api.pagou.ai'`
+  - `frameworks/woocommerce.md` — `const BASE = 'https://api.pagou.ai'`
+  - `frameworks/generic.md` — pseudocódigo refere "constante hardcoded"
+- **Painel admin em WordPress/WooCommerce remove o selector "Sandbox/Produção"** — fica só o campo `API Key (PRODUÇÃO)` com aviso sobre `tools/pagou-mock/` para dev local.
+- **`KNOWLEDGE.md` tabela de documentação oficial deixa de listar URL de sandbox** (a Pagou pode continuar a tê-lo, mas a Skill não suporta). Adiciona nota explícita: *"a Skill v3+ só fala com produção; usar `tools/pagou-mock/` para dev"*.
+- **Detecção de produção para fail-closed em HMAC** passa a usar runtimes do framework (`NODE_ENV`, `APP_ENV`, etc.) em vez de `PAGOU_ENV`.
+
+### Adicionado
+
+- **Promoção do `tools/pagou-mock/`** como o único caminho oficial para dev/CI sem tocar em produção. Documentado em SKILL.md, CLAUDE.md, KNOWLEDGE.md, README, todos os templates e checklists.
+- **Aviso explícito ao utilizador** durante a 1ª pergunta de que a chave colada é de produção.
+
+### Alterado
+
+- `SKILL.md` — secção "Perguntas permitidas" volta a 4 linhas; nova subsecção "Apenas produção (desde v3.0.0)" explicando a remoção.
+- `CLAUDE.md` — Fase 1 critério de saída lista 4 perguntáveis; Fase 3 passo 1 menciona que `PAGOU_ENV` não é configurado; passo 3 explicita base URL constante.
+- `prompts/missing-data.md` — reescrito com nova ordem (key → modo → URL → status), template de mensagem ao utilizador actualizado, secção "O que nunca perguntar" ganha entrada "Sandbox ou produção?".
+- `prompts/integration-plan.md`, `prompts/pix-integration.md`, `prompts/scoring.md` — remoção de menções a `PAGOU_ENV` e sandbox.
+- `templates/PAGOU_PIX_INTEGRATION_PLAN.md` — campo "Ambiente Pagou escolhido" substituído por "API Pagou alvo" (constante).
+- `templates/PAGOU_PIX_INTEGRATION_REPORT.md` — campo "Ambiente alvo" idem; testes apontam para mock.
+- `templates/README_PAGOU_PIX.md` — secção "Variáveis de ambiente" simplificada; secção "Base URLs" substituída por "Como testar localmente sem cobranças reais".
+- `templates/TEST_REPORT.md` — secção "Criar cobrança em sandbox" → "Criar cobrança contra `tools/pagou-mock/`".
+- `checklists/production.md`, `checklists/validation.md`, `checklists/reconciliation.md`, `checklists/webhook.md` — remoção de menções a sandbox; promoção do mock como caminho de teste.
+- README.md — "5 informações" volta a "4 informações"; tabela de features ganha entrada "Apenas produção".
+
+### Removido
+
+- Variáveis de ambiente `PAGOU_ENV` e `PAGOU_BASE_URL` de todo o código gerado e da documentação.
+- URL `https://api-sandbox.pagou.ai` de todos os ficheiros (excepto referências históricas no CHANGELOG).
+- Pergunta "Sandbox ou Produção?" do contrato da Skill.
+- Selector "Sandbox/Produção" dos painéis admin de WordPress e WooCommerce.
+
+### Não alterado
+
+- `tools/pagou-mock/` (que já existia em 1.2.0) — continua a ser o servidor de simulação local. Promovido agora a caminho oficial de dev/CI em vez de ser opcional.
+- HMAC, dedup por `event.id` top-level, idempotência tripla, valores em centavos, `external_ref`, ACK rápido — todos os invariantes técnicos do contrato com a Pagou v2 mantêm-se.
+- Modo de confirmação webhook vs polling (introduzido em 2.0.0). Continua a ser a 2ª pergunta agora.
+
+### Migração de 2.0.0 para 3.0.0
+
+Para utilizadores actuais com integração feita pela v2:
+
+1. Remover `PAGOU_ENV` e `PAGOU_BASE_URL` do `.env` e do `.env.example`.
+2. Confirmar que `PAGOU_API_KEY` é a chave de **produção** da Pagou (não sandbox).
+3. No cliente HTTP do projecto, substituir o mapa `{sandbox, production} → URL` por `const PAGOU_BASE_URL = "https://api.pagou.ai"`.
+4. Substituir checks de `process.env.PAGOU_ENV === "production"` por checks ao runtime do framework (`NODE_ENV`, `APP_ENV`, etc.).
+5. Para dev local, apontar o cliente HTTP para `tools/pagou-mock/` (porta default 8787) em vez de `api-sandbox.pagou.ai`.
+
+A Skill executada num projecto já integrado deve detectar isto no Descobrir e propor a migração via aprovação humana.
+
 ## [2.0.0] — 2026-06-03
 
 Modo de confirmação de pagamento agora é **configurável** — webhook (default, recomendado) ou polling-only (opt-out, mais simples).

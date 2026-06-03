@@ -7,9 +7,11 @@
 - [ ] **Migração aplicada em produção.** Comando do framework executado com sucesso. Tabelas `pagou_pix_transactions` e `pagou_webhook_events` existem.
 
 - [ ] **Variáveis configuradas no ambiente de produção.**
-  - `PAGOU_API_KEY` (production key, **não** sandbox)
-  - `PAGOU_ENV=production`
-  - `PUBLIC_APP_URL` aponta para domínio real https://
+  - `PAGOU_API_KEY` (chave válida da conta Pagou — Skill v3+ não tem conceito de sandbox)
+  - `PAGOU_CONFIRMATION_MODE` definido (`webhook` ou `polling`)
+  - `PAGOU_WEBHOOK_SECRET` definido (se modo = webhook)
+  - `PUBLIC_APP_URL` aponta para domínio real https:// (se modo = webhook)
+  - **Não** existe `PAGOU_ENV` nem `PAGOU_BASE_URL` — Skill v3+ tem URL hardcoded para `https://api.pagou.ai`
   - Validação: cold start sem `Error: PAGOU_API_KEY is not set`
 
 - [ ] **Webhook registrado no painel Pagou produção.** URL aponta para domínio real, eventos selecionados.
@@ -57,7 +59,7 @@
 
 - [ ] **Política de retenção.** `pagou_webhook_events` cresce indefinidamente; documentar limpeza após N anos.
 
-- [ ] **Conta sandbox separada da conta produção.** Não compartilhar PAGOU_API_KEY entre ambientes.
+- [ ] **Dev usa `tools/pagou-mock/` em vez da API real.** Equipa documenta processo para CI / staging não consumir transações reais.
 
 ## Pré-deploy: smoke test em staging
 

@@ -76,7 +76,7 @@ Cobertura: {{XX}}% (linhas) / {{XX}}% (branches)
 - [x] Trata erro 5xx
 - [x] Timeout configurado
 
-### Criar cobrança em sandbox
+### Criar cobrança contra `tools/pagou-mock/` (dev) ou produção (smoke)
 
 - [x] `POST /v2/transactions` retorna 200 com `pix_qr_code` não vazio
 - [x] Retorna `pix_code` no formato esperado (string longa de BR Code)

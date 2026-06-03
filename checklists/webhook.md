@@ -10,7 +10,7 @@
   - Header `X-Pagou-Signature` validado contra `HMAC-SHA256(rawBody, PAGOU_WEBHOOK_SECRET)`
   - Comparação em **tempo constante** (`timingSafeEqual`, `hash_equals`, `secrets.compare_digest`)
   - Assinatura inválida → resposta `401` + payload **não** persiste
-  - Em produção (`PAGOU_ENV=production`) sem `PAGOU_WEBHOOK_SECRET` → boot falha (fail closed)
+  - Em produção (detectado pelo runtime do framework: `NODE_ENV=production` / `APP_ENV=production` / etc.) sem `PAGOU_WEBHOOK_SECRET` → boot falha (fail closed). Skill v3+ não usa `PAGOU_ENV`.
   - Em dev sem secret → log warning + permitido (fail open)
   - Body cru usado no cálculo (não o JSON parseado)
   - Teste: assinatura forjada → 401 + nada persistido

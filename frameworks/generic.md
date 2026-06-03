@@ -14,17 +14,12 @@ Usar quando o projeto **não for** Next.js, Laravel, WordPress nem WooCommerce. 
 ### Configuração (env)
 
 ```
-PAGOU_API_KEY=
-PAGOU_ENV=sandbox            # sandbox | production
-PAGOU_BASE_URL=              # opcional
+PAGOU_API_KEY=                       # chave de PRODUÇÃO
+PAGOU_WEBHOOK_SECRET=                # só relevante se modo = webhook
+PAGOU_CONFIRMATION_MODE=webhook      # webhook | polling
 ```
 
-Resolver base URL:
-
-| `PAGOU_ENV` | Base URL |
-|---|---|
-| `sandbox` | `https://api-sandbox.pagou.ai` |
-| `production` | `https://api.pagou.ai` |
+Base URL (v3.0.0+): **constante hardcoded** `https://api.pagou.ai`. Não há sandbox nem override por env var. Para dev local, usar `tools/pagou-mock/`.
 
 ### Cliente HTTP
 
@@ -138,9 +133,9 @@ POST /webhooks/pagou
 verify_signature(raw_body, header_signature) -> bool
   secret = env("PAGOU_WEBHOOK_SECRET")
   if secret is empty:
-      if env("PAGOU_ENV") == "production":
+      if running_in_production():
           raise "PAGOU_WEBHOOK_SECRET required in production"
-      log_warn("signature check skipped in dev")
+      log_warn("signature check skipped in dev — point client to tools/pagou-mock/")
       return true
   if header_signature is empty:
       return false

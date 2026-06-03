@@ -9,7 +9,7 @@
 | Data | {{YYYY-MM-DD}} |
 | Versão da Skill | 2.0.0 |
 | Pagou API | v2 |
-| Ambiente alvo | {{sandbox | production}} |
+| API alvo | `https://api.pagou.ai` (Skill v3+ — apenas produção) |
 | Modo de confirmação | {{webhook | polling}} |
 | Branch / commit | {{nome — sha}} |
 
@@ -62,7 +62,7 @@ Status: ✓ aplicada em {{ambiente}}.
 - [ ] Registrado no painel Pagou (URL: `{{https://app.exemplo.com/api/webhooks/pagou}}`)
 - [ ] Eventos selecionados: `transaction.*`
 - [ ] `PAGOU_WEBHOOK_SECRET` copiado do painel para o `.env`
-- [ ] Teste de entrega verificado (evento sandbox recebido)
+- [ ] Teste de entrega verificado (evento simulado via `tools/pagou-mock/` ou via painel da Pagou em smoke test de produção)
 - [ ] Job de reconciliação **horário** ativo como fallback
 
 ### Se modo = `polling`
@@ -77,7 +77,7 @@ Status: ✓ aplicada em {{ambiente}}.
 
 ### Configuração
 - {{`src/lib/pagou/client.ts:14` lê `process.env.PAGOU_API_KEY`}}
-- {{`.env.example` contém PAGOU_API_KEY, PAGOU_ENV, etc.}}
+- {{`.env.example` contém PAGOU_API_KEY, PAGOU_CONFIRMATION_MODE, etc. (sem PAGOU_ENV — removido na v3+)}}
 - {{`grep -r PAGOU_API_KEY src/` → 1 ocorrência (server side)}}
 - {{`.gitignore` inclui `.env*`}}
 
@@ -87,7 +87,7 @@ Status: ✓ aplicada em {{ambiente}}.
 
 ### PIX
 - {{teste unit `amount × 100` passou}}
-- {{teste integration cria cobrança em sandbox e recebe `pix_qr_code` não vazio}}
+- {{teste integration cria cobrança contra `tools/pagou-mock/` e recebe `pix_qr_code` não vazio}}
 - {{upsert por `external_ref` validado}}
 
 ### Webhooks

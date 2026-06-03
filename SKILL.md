@@ -9,7 +9,7 @@ Skill autônoma para integração PIX em projetos existentes utilizando a plataf
 
 ## Versão
 
-2.0.0
+3.0.0
 
 ## Escopo
 
@@ -38,17 +38,25 @@ Pix Out (transfers) e Subscriptions estão documentados em `KNOWLEDGE.md` para c
 
 ## Perguntas permitidas
 
-Apenas os 5 dados abaixo podem ser solicitados ao usuário:
+Apenas os 4 dados abaixo podem ser solicitados ao usuário:
 
 | Pergunta | Razão (impossível inferir) |
 |---|---|
 | `PAGOU_API_KEY` | Segredo — não pode estar no repositório |
-| Sandbox ou Produção | Decisão operacional do usuário |
+| Modo de confirmação de pagamento | `webhook` (recomendado, default) ou `polling` (opt-out, mais simples) |
 | URL pública do projeto | Necessária para registrar webhook na Pagou (só se modo = webhook) |
 | Status internos desejados | Mapeamento de domínio (ex.: `paid` → `aprovado`, `confirmado`) |
-| Modo de confirmação de pagamento | `webhook` (recomendado, default) ou `polling` (opt-out, mais simples) |
 
 **Tudo o resto deve ser descoberto.** Framework, banco, ORM, sistema de auth, fluxo de checkout, tabela principal, padrão de pastas — nada disso pode ser perguntado.
+
+### Apenas produção (desde v3.0.0)
+
+A Skill chama **sempre** `https://api.pagou.ai` (produção). Não suporta sandbox.
+
+- **Não há pergunta de ambiente** — não existe `PAGOU_ENV`.
+- O cliente HTTP gerado tem o URL hardcoded — não é configurável por env var.
+- Para desenvolvimento local sem tocar em produção, usar `tools/pagou-mock/` que está incluído no repo da Skill (servidor Node que simula a API v2 da Pagou com webhooks HMAC válidos, zero dependências, ideal para CI e dev).
+- Testes unit + integration + webhook devem usar mock HTTP (vitest/msw em Node, `Http::fake()` em Laravel, etc.) — nunca atingem a Pagou real.
 
 ### Modo de confirmação — webhook vs polling
 

@@ -7,8 +7,7 @@ Este documento descreve **como operar** a integração PIX no dia a dia. Para de
 ### Variáveis de ambiente
 
 ```bash
-PAGOU_API_KEY=                              # secret — apenas backend
-PAGOU_ENV=sandbox                           # sandbox | production
+PAGOU_API_KEY=                              # secret — apenas backend — chave de PRODUÇÃO
 PAGOU_CONFIRMATION_MODE=webhook             # webhook (recomendado) | polling
 PAGOU_WEBHOOK_SECRET=                       # só relevante em modo webhook
 PUBLIC_APP_URL=https://app.exemplo.com      # só relevante em modo webhook
@@ -16,14 +15,18 @@ PUBLIC_APP_URL=https://app.exemplo.com      # só relevante em modo webhook
 
 Definir no `.env` local e no painel do provedor de deploy. **Nunca commitar.**
 
-> `PAGOU_API_URL` **não** é variável de ambiente — é derivado em runtime a partir de `PAGOU_ENV` pelo cliente HTTP.
+> A Skill v3+ chama sempre `https://api.pagou.ai`. **Não há variável de ambiente para alterar isto.** `PAGOU_API_URL` é constante hardcoded no cliente HTTP.
 
-### Base URLs (derivadas de `PAGOU_ENV`)
+### Como testar localmente sem cobranças reais
 
-| `PAGOU_ENV` | URL escolhida pelo cliente |
-|---|---|
-| `sandbox` | `https://api-sandbox.pagou.ai` |
-| `production` | `https://api.pagou.ai` |
+A Skill não tem sandbox. Para dev e CI sem tocar em produção, use o `tools/pagou-mock/` que vem no repo da Skill:
+
+- Servidor Node (zero dependências, Node 20+) que simula a API v2 da Pagou
+- Implementa as 4 rotas (`create`, `get`, `cancel`, `refund`)
+- Dispara webhooks com HMAC válido
+- Cenários por prefixo de `external_ref`: `expire-`, `refuse-`, `chargeback-`, `slow-`, `silent-`
+
+Apontar o cliente HTTP do projeto para `http://localhost:8787` (ou porta configurada) durante dev/CI.
 
 ---
 
@@ -44,7 +47,7 @@ Definir no `.env` local e no painel do provedor de deploy. **Nunca commitar.**
 5. Salvar — o painel devolve um **secret HMAC**
 6. Colar o secret no `.env` como `PAGOU_WEBHOOK_SECRET=...`
 7. Em produção, garantir que o secret está definido — sem ele a aplicação falha o boot (fail-closed)
-8. Testar entrega disparando um evento sandbox a partir do painel
+8. Testar entrega — em dev, usar `tools/webhook-tester/` (HMAC válido contra localhost); em produção, fazer smoke test conforme `checklists/production.md`
 
 #### Se modo = `polling`
 
@@ -234,7 +237,7 @@ O handler deve responder em < 5s. Se está demorando:
 
 ### "PAGOU_API_KEY inválida"
 
-- Confirmar que `PAGOU_ENV` corresponde à chave (sandbox key não funciona em prod)
+- Confirmar que `PAGOU_API_KEY` é a chave correta da conta produção (não há sandbox na Skill v3+)
 - Confirmar que a variável está setada no servidor (não apenas no `.env` local)
 
 ## Limites e considerações

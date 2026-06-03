@@ -10,9 +10,9 @@
 
 ## Ordem de implementação
 
-1. **`.env.example`** — adicionar `PAGOU_API_KEY`, `PAGOU_ENV`, `PAGOU_BASE_URL` (opcional), `PUBLIC_APP_URL`
+1. **`.env.example`** — adicionar `PAGOU_API_KEY`, `PAGOU_CONFIRMATION_MODE` (default `webhook`), `PAGOU_WEBHOOK_SECRET` (se modo webhook), `PUBLIC_APP_URL` (se modo webhook). **Não** incluir `PAGOU_ENV` nem `PAGOU_BASE_URL` — Skill v3+ tem URL hardcoded para produção
 2. **Migração** — criar `pagou_pix_transactions` e `pagou_webhook_events` conforme adapter
-3. **Cliente Pagou** — wrapper HTTP com auth, base URL por ambiente, error class própria
+3. **Cliente Pagou** — wrapper HTTP com auth + URL constante `https://api.pagou.ai`, error class própria
 4. **Status mapping** — função `mapStatus(pagou_status) → internal_status`
 5. **Serviço PIX** — `createPixCharge(order)` e `getTransaction(id)`
 6. **Endpoint público** — receber `order_id`, chamar serviço, persistir, retornar QR + copia-e-cola
@@ -118,5 +118,5 @@ Se falhar, retornar 400 ao client com o motivo — **não** chamar a Pagou.
 ## Saída desta fase
 
 - Arquivos criados/modificados conforme plano aprovado
-- Endpoint testado manualmente com `curl` ou Insomnia/Postman → status 200 e `pix_qr_code` válido em sandbox
+- Endpoint testado manualmente com `curl` ou Insomnia/Postman apontando para `tools/pagou-mock/` → status 200 e `pix_qr_code` válido (sem tocar em produção real)
 - Próxima fase: `webhook-integration.md`

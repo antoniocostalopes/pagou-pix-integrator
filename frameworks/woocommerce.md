@@ -149,8 +149,7 @@ class WC_Pagou_Pix_Gateway extends WC_Payment_Gateway
             'enabled' => ['title' => 'Ativar', 'type' => 'checkbox', 'default' => 'no'],
             'title' => ['title' => 'Título no checkout', 'type' => 'text', 'default' => 'PIX'],
             'description' => ['title' => 'Descrição', 'type' => 'textarea', 'default' => 'Pagamento instantâneo via PIX'],
-            'api_key' => ['title' => 'API Key', 'type' => 'password'],
-            'env' => ['title' => 'Ambiente', 'type' => 'select', 'options' => ['sandbox' => 'Sandbox', 'production' => 'Produção'], 'default' => 'sandbox'],
+            'api_key' => ['title' => 'API Key (PRODUÇÃO)', 'type' => 'password', 'description' => 'Skill v3+ chama sempre https://api.pagou.ai. Para dev local, usar tools/pagou-mock/.'],
         ];
     }
 
@@ -223,12 +222,10 @@ if (! defined('ABSPATH')) exit;
 
 class Pagou_Pix_WC_Client
 {
-    const BASE = [
-        'sandbox' => 'https://api-sandbox.pagou.ai',
-        'production' => 'https://api.pagou.ai',
-    ];
+    // v3.0.0+ — apenas produção
+    const BASE = 'https://api.pagou.ai';
 
-    public static function request(string $method, string $path, ?array $body = null, ?string $key = null, ?string $env = 'sandbox'): array
+    public static function request(string $method, string $path, ?array $body = null, ?string $key = null): array
     {
         if (empty($key)) return ['error' => 'missing_api_key'];
 
@@ -243,7 +240,7 @@ class Pagou_Pix_WC_Client
         ];
         if ($body !== null) $args['body'] = wp_json_encode($body);
 
-        $resp = wp_remote_request(self::BASE[$env] . $path, $args);
+        $resp = wp_remote_request(self::BASE . $path, $args);
         if (is_wp_error($resp)) return ['error' => $resp->get_error_message()];
 
         $code = wp_remote_retrieve_response_code($resp);
@@ -394,8 +391,8 @@ class Test_Pagou_WC_Webhook extends WP_UnitTestCase {
 
 - Ativar gateway em **WooCommerce → Configurações → Pagamentos**
 - Preencher API key e ambiente
-- Fazer um pedido de teste em sandbox
-- Disparar webhook sandbox (modo `webhook`) ou esperar 1–2 min pelo poller (modo `polling`) e confirmar mudança de status do pedido
+- Fazer um pedido de teste apontando o cliente HTTP para `tools/pagou-mock/` (servidor local) ou para um proxy controlado — **nunca** atingir `https://api.pagou.ai` em testes manuais sem intenção
+- Disparar webhook do mock (modo `webhook`) ou esperar 1–2 min pelo poller (modo `polling`) e confirmar mudança de status do pedido
 
 ---
 

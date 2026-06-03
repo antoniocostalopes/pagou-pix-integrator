@@ -9,8 +9,9 @@ Esta é a **única fonte de verdade** desta Skill sobre a API Pagou. Antes de ge
 | Docs rápidas (LLMs) | https://developer.pagou.ai/llms.txt |
 | Docs completas (LLMs) | https://developer.pagou.ai/llms-full.txt |
 | OpenAPI v2 (JSON) | https://developer.pagou.ai/api-reference/openapi-v2.json |
-| Sandbox | https://api-sandbox.pagou.ai |
-| Produção | https://api.pagou.ai |
+| Produção (única URL usada pela Skill v3+) | https://api.pagou.ai |
+
+> **A Skill v3.0.0+ só fala com produção.** Não há sandbox configurável. Para dev/CI local sem cobranças reais, usar `tools/pagou-mock/` incluído no repo da Skill (servidor Node que simula a API v2 com webhooks HMAC válidos).
 
 ## Autenticação
 
@@ -236,7 +237,7 @@ ok       = constant_time_compare(expected, header)
 1. **Usar o body cru** — antes de qualquer parse JSON. Se reformatares, o hash muda.
 2. **Comparação em tempo constante** (`timingSafeEqual` em Node, `hash_equals` em PHP, `secrets.compare_digest` em Python). `==` vaza timing.
 3. **Falhar fechado** — assinatura inválida → `401`, não persiste o evento.
-4. **Fallback seguro em dev** — se `PAGOU_WEBHOOK_SECRET` não estiver definido, logar warning e permitir (não bloquear dev local). **Em produção** (`PAGOU_ENV=production` + secret ausente) → sair com erro no boot.
+4. **Fallback seguro em dev** — se `PAGOU_WEBHOOK_SECRET` não estiver definido, logar warning e permitir (não bloquear dev local). **Em produção** (detectada pelo runtime do framework: `NODE_ENV=production`, `APP_ENV=production`, etc. — não há `PAGOU_ENV` na Skill v3+) e com secret ausente → sair com erro no boot.
 
 **Env var nova:**
 
@@ -317,7 +318,8 @@ import { Client } from "@pagouai/api-sdk";
 
 const client = new Client({
   apiKey: process.env.PAGOU_API_KEY!,
-  environment: process.env.PAGOU_ENV === "production" ? "production" : "sandbox",
+  // Skill v3+: SDK aponta sempre para produção
+  environment: "production",
 });
 
 const tx = await client.transactions.create({

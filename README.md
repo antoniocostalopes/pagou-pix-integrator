@@ -4,7 +4,7 @@
 
 ### Plugin para Claude Code que integra PIX via Pagou.ai em qualquer projeto existente — com descoberta automática, aprovação humana, testes, validação e score técnico.
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg?style=for-the-badge)](./CHANGELOG.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-D97706?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.com/claude-code)
 [![PT-BR](https://img.shields.io/badge/lang-PT--BR-009C3B?style=for-the-badge)](#)
 
@@ -70,8 +70,9 @@ Em vez de leres documentação, copiares snippets e adaptares para o teu stack, 
 |---|---|
 | 🔍 **Descoberta automática** | Analisa `package.json`, `composer.json`, `wp-config.php`, ORM, rotas, auth, fluxo de checkout — **sem perguntar** |
 | 🤝 **Human Approval Gate** | Antes de modificar qualquer arquivo, apresenta plano explícito com lista de mudanças |
-| ❓ **Só 5 perguntas** | API key, ambiente, modo (webhook/polling), URL pública (se webhook), status internos — tudo o resto é inferido |
+| ❓ **Só 4 perguntas** | API key, modo (webhook/polling), URL pública (se webhook), status internos — tudo o resto é inferido |
 | 🔄 **Modo configurável** | A partir de 2.0.0, escolhes entre webhook (recomendado) ou polling-only (mais simples, sem URL pública) |
+| 🏭 **Apenas produção** | Desde 3.0.0, a Skill chama sempre `https://api.pagou.ai`. Para dev local sem cobranças reais, usar `tools/pagou-mock/` |
 | 🔐 **HMAC nos webhooks** | `HMAC-SHA256` no header `X-Pagou-Signature` com comparação em tempo constante; fail-closed em produção |
 | 🛡️ **Segurança built-in** | API key apenas backend, valores em centavos, sem segredos em logs ou commits |
 | 🔁 **Idempotência tripla** | Upsert por `external_ref`, UNIQUE em `event_id`, no-regress em status terminais |
@@ -193,15 +194,14 @@ Se preferires não memorizar o nome do comando, a Skill também é acionada por 
 >
 > _"Implementa pagamento PIX aqui."_
 
-Em ambos os casos a Skill cuida do resto. Só precisas de **5 informações** — tudo o resto é descoberto:
+Em ambos os casos a Skill cuida do resto. Só precisas de **4 informações** — tudo o resto é descoberto:
 
-1. 🔑 **`PAGOU_API_KEY`** — chave da tua conta Pagou
-2. 🌐 **Ambiente** — sandbox ou produção
-3. 🔄 **Modo de confirmação** — `webhook` (recomendado, robusto) ou `polling` (sem URL pública, mais simples)
-4. 🔗 **URL pública** do projeto (só se escolheres `webhook` — para registar o webhook na Pagou)
-5. 🏷️ **Status internos** — como mapear `paid` → `pago` no teu domínio
+1. 🔑 **`PAGOU_API_KEY`** — chave de **produção** da tua conta Pagou
+2. 🔄 **Modo de confirmação** — `webhook` (recomendado, robusto) ou `polling` (sem URL pública, mais simples)
+3. 🔗 **URL pública** do projeto (só se escolheres `webhook` — para registar o webhook na Pagou)
+4. 🏷️ **Status internos** — como mapear `paid` → `pago` no teu domínio
 
-> 💡 **`PAGOU_API_URL` não é perguntado.** É derivado em runtime a partir de `PAGOU_ENV` (`sandbox` → `api-sandbox.pagou.ai`, `production` → `api.pagou.ai`).
+> 💡 **Apenas produção (desde v3.0.0).** A Skill chama sempre `https://api.pagou.ai`. Não há `PAGOU_ENV`, não há `PAGOU_BASE_URL`, não há sandbox configurável. Para dev/CI sem cobranças reais, usar `tools/pagou-mock/` no repo da Skill.
 
 ---
 
@@ -401,7 +401,7 @@ Em escopo: forjar webhooks, vazar segredos, bypass do Approval Gate, SQL injecti
 
 ## 📅 Changelog
 
-Versão atual: **`2.0.0`** — modo de confirmação configurável (webhook recomendado vs polling-only). Adiciona 5ª pergunta no fluxo Confirmar. Background poller + reconciliação a cada 15 min em modo polling. BREAKING: contrato de 4 perguntas passa para 5; consumidores que dependiam do invariante "webhook sempre" devem ler o changelog.
+Versão atual: **`3.0.0`** — remove suporte a sandbox. A Skill agora chama sempre `https://api.pagou.ai` (constante hardcoded no cliente HTTP de cada adapter). Removidas as variáveis `PAGOU_ENV` e `PAGOU_BASE_URL`. Lista canónica de perguntas volta de 5 para 4 (ambiente desaparece). Para dev/CI sem cobranças reais, `tools/pagou-mock/` é o único caminho suportado. BREAKING: utilizadores que dependiam de sandbox têm de adaptar — ler o changelog.
 
 Histórico completo em [`CHANGELOG.md`](./CHANGELOG.md).
 

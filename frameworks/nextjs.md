@@ -30,11 +30,10 @@ Detecte qual está em uso pela existência de `app/` ou `pages/`. Se ambos, pref
 `.env.local` (e `.env.example`):
 
 ```bash
-PAGOU_API_KEY=                      # secret — backend only
+PAGOU_API_KEY=                      # secret — backend only — chave de PRODUÇÃO
 PAGOU_WEBHOOK_SECRET=               # secret HMAC do webhook (do painel Pagou)
-PAGOU_ENV=sandbox                   # sandbox | production
-PAGOU_BASE_URL=                     # opcional; default por ambiente
-PUBLIC_APP_URL=https://example.com  # usada para registrar webhook
+PAGOU_CONFIRMATION_MODE=webhook     # webhook | polling
+PUBLIC_APP_URL=https://example.com  # usada para registrar webhook (só relevante se modo = webhook)
 ```
 
 ## 2. Migration Prisma
@@ -88,20 +87,11 @@ npx prisma migrate dev --name add_pagou_pix
 `src/lib/pagou/client.ts`:
 
 ```ts
-const BASE_URL_BY_ENV = {
-  sandbox: "https://api-sandbox.pagou.ai",
-  production: "https://api.pagou.ai",
-} as const;
-
-type PagouEnv = keyof typeof BASE_URL_BY_ENV;
-
-function getEnv(): PagouEnv {
-  const v = process.env.PAGOU_ENV;
-  return v === "production" ? "production" : "sandbox";
-}
+// v3.0.0+ — Skill apenas produção, sem sandbox
+const PAGOU_BASE_URL = "https://api.pagou.ai" as const;
 
 function getBaseUrl(): string {
-  return process.env.PAGOU_BASE_URL || BASE_URL_BY_ENV[getEnv()];
+  return PAGOU_BASE_URL;
 }
 
 function getApiKey(): string {
@@ -404,10 +394,10 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export function verifyPagouSignature(rawBody: string, headerSignature: string | null): boolean {
   const secret = process.env.PAGOU_WEBHOOK_SECRET;
   if (!secret) {
-    if (process.env.PAGOU_ENV === "production") {
+    if (process.env.NODE_ENV === "production") {
       throw new Error("PAGOU_WEBHOOK_SECRET is required in production");
     }
-    console.warn("[pagou] PAGOU_WEBHOOK_SECRET not set — signature check skipped (dev only)");
+    console.warn("[pagou] PAGOU_WEBHOOK_SECRET not set — signature check skipped (dev only — point to tools/pagou-mock/)");
     return true;
   }
   if (!headerSignature) return false;

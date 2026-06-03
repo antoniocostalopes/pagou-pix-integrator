@@ -67,24 +67,16 @@ function pagou_pix_settings_page() {
     if (! current_user_can('manage_options')) return;
     if (isset($_POST['pagou_pix_save']) && check_admin_referer('pagou_pix_save')) {
         update_option('pagou_pix_api_key', sanitize_text_field($_POST['api_key'] ?? ''), false);
-        update_option('pagou_pix_env', sanitize_text_field($_POST['env'] ?? 'sandbox'), false);
         echo '<div class="updated"><p>Salvo.</p></div>';
     }
     $key = get_option('pagou_pix_api_key', '');
-    $env = get_option('pagou_pix_env', 'sandbox');
     ?>
     <div class="wrap">
         <h1>Pagou PIX</h1>
         <form method="post">
             <?php wp_nonce_field('pagou_pix_save'); ?>
             <table class="form-table">
-                <tr><th>API Key</th><td><input type="password" name="api_key" value="<?php echo esc_attr($key); ?>" class="regular-text"></td></tr>
-                <tr><th>Ambiente</th><td>
-                    <select name="env">
-                        <option value="sandbox" <?php selected($env, 'sandbox'); ?>>Sandbox</option>
-                        <option value="production" <?php selected($env, 'production'); ?>>Produção</option>
-                    </select>
-                </td></tr>
+                <tr><th>API Key (PRODUÇÃO)</th><td><input type="password" name="api_key" value="<?php echo esc_attr($key); ?>" class="regular-text"><p class="description">A Skill chama sempre <code>https://api.pagou.ai</code>. Para dev local, usar <code>tools/pagou-mock/</code>.</p></td></tr>
                 <tr><th>Webhook URL</th><td><code><?php echo esc_url(rest_url('pagou/v1/webhook')); ?></code></td></tr>
             </table>
             <?php submit_button('Salvar', 'primary', 'pagou_pix_save'); ?>
@@ -186,15 +178,12 @@ if (! defined('ABSPATH')) exit;
 
 class Pagou_Pix_Client
 {
-    const BASE = [
-        'sandbox' => 'https://api-sandbox.pagou.ai',
-        'production' => 'https://api.pagou.ai',
-    ];
+    // v3.0.0+ — apenas produção
+    const BASE = 'https://api.pagou.ai';
 
     public static function request(string $method, string $path, array $body = null): array
     {
         $key = get_option('pagou_pix_api_key');
-        $env = get_option('pagou_pix_env', 'sandbox');
         if (empty($key)) {
             return ['error' => 'PAGOU_API_KEY missing'];
         }
@@ -213,7 +202,7 @@ class Pagou_Pix_Client
             $args['body'] = wp_json_encode($body);
         }
 
-        $resp = wp_remote_request(self::BASE[$env] . $path, $args);
+        $resp = wp_remote_request(self::BASE . $path, $args);
 
         if (is_wp_error($resp)) {
             return ['error' => $resp->get_error_message()];
@@ -393,7 +382,7 @@ class Test_Pagou_Webhook extends WP_UnitTestCase {
 - Ativar plugin no admin
 - Configurar API key e ambiente
 - Registrar webhook URL na Pagou (só se modo = `webhook`)
-- Disparar evento sandbox e verificar `wp_pagou_webhook_events`
+- Disparar evento simulado via `tools/webhook-tester/` (HMAC válido, sem tocar em produção) e verificar `wp_pagou_webhook_events`
 
 ---
 

@@ -36,21 +36,22 @@
 
 - [ ] **Testes de erro da Pagou** — simular 401, 500, timeout, e validar comportamento do cliente.
 
-- [ ] **Snapshots de payload** — guardar exemplos reais (sandbox) para regressão.
+- [ ] **Snapshots de payload** — guardar exemplos gerados pelo `tools/pagou-mock/` para regressão.
 
 - [ ] **Fuzz no webhook** — payloads malformados não derrubam o handler.
 
-## Validações funcionais (com sandbox)
+## Validações funcionais (contra `tools/pagou-mock/`)
 
-Para cada uma, executar manualmente em sandbox e marcar:
+A Skill v3+ só fala com produção (`https://api.pagou.ai`). Para validar sem cobranças reais, apontar o cliente HTTP local para `tools/pagou-mock/` (ver README do mock) e executar manualmente:
 
 - [ ] Criar cobrança de R$ 0,01 → recebe QR válido e copia-e-cola
 - [ ] QR code renderiza como imagem PNG no frontend
 - [ ] Copia-e-cola tem comprimento > 100 chars (BR Code real)
-- [ ] Pagar em sandbox (modo Pagou de simulação) → webhook chega
-- [ ] Status do pedido vira `pago` em menos de 5s após pagamento
+- [ ] Mock dispara webhook simulado (HMAC válido) → handler recebe
+- [ ] Status do pedido vira `pago` em menos de 5s após o webhook simulado
 - [ ] Reconciliação manual retorna status correto
-- [ ] Cobrança expirada vira `expirado` após webhook correspondente
+- [ ] Cobrança expirada vira `expirado` após webhook correspondente (cenário `expire-` do mock)
+- [ ] Antes do go-live, smoke test em produção com R$ 1,00 e pagamento real, conforme `checklists/production.md`
 
 ## Validações de regressão
 

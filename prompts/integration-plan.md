@@ -57,7 +57,7 @@ Incluir uma das duas secções conforme escolha:
 ### 3. Arquivos a MODIFICAR
 
 ```
-M .env.example                  ← adicionar PAGOU_API_KEY=, PAGOU_ENV=, etc.
+M .env.example                  ← adicionar PAGOU_API_KEY, PAGOU_CONFIRMATION_MODE, PAGOU_WEBHOOK_SECRET (se webhook), PUBLIC_APP_URL (se webhook)
 M prisma/schema.prisma          ← adicionar 2 models
 M README.md                     ← seção "PIX via Pagou"
 M src/lib/orders/markPaid.ts    ← se já existe lógica de "marcar pago", adicionar hook do PIX
@@ -100,7 +100,7 @@ Documentar que o registro deve ser feito **na dashboard Pagou** após o deploy. 
 Job: PagouPixPoller
 Frequência: cada 30s, por transação, desde criação até estado terminal ou expiração
 Onde corre: depende do stack (Vercel Cron, Laravel Schedule, wp-cron, etc.)
-Endpoint chamado: GET https://{api-sandbox|api}.pagou.ai/v2/transactions/{id}
+Endpoint chamado: GET https://api.pagou.ai/v2/transactions/{id}
 ```
 
 ### 7. Job de reconciliação (gerado em ambos os modos)
@@ -113,14 +113,13 @@ Função: apanhar eventos pós-terminal (refunded, chargedback) que o caminho pr
 ### 8. Variáveis de ambiente novas
 
 ```
-PAGOU_API_KEY=
-PAGOU_ENV=sandbox
-PAGOU_CONFIRMATION_MODE=webhook       # ou "polling"
-PAGOU_WEBHOOK_SECRET=                  # só relevante em modo webhook (preencher após registar webhook na Pagou)
-PUBLIC_APP_URL=https://app.exemplo.com # só relevante em modo webhook
+PAGOU_API_KEY=                              # chave de PRODUÇÃO
+PAGOU_CONFIRMATION_MODE=webhook             # ou "polling"
+PAGOU_WEBHOOK_SECRET=                       # só relevante em modo webhook (preencher após registar webhook na Pagou)
+PUBLIC_APP_URL=https://app.exemplo.com      # só relevante em modo webhook
 ```
 
-**Nota:** `PAGOU_API_URL` **não é variável de ambiente** — é derivado pelo cliente HTTP a partir de `PAGOU_ENV`.
+**Nota:** `PAGOU_API_URL` **não é variável de ambiente** — é **constante hardcoded** `https://api.pagou.ai` no cliente HTTP. A Skill v3+ não suporta sandbox nem override. Para dev local sem cobranças reais, usar `tools/pagou-mock/` no repo da Skill.
 
 ## Pergunta final
 

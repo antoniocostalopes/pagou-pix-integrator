@@ -21,20 +21,17 @@
 `.env`:
 
 ```bash
-PAGOU_API_KEY=
+PAGOU_API_KEY=                       # chave de PRODUÇÃO (Skill v3+ não suporta sandbox)
 PAGOU_WEBHOOK_SECRET=
-PAGOU_ENV=sandbox
-PAGOU_BASE_URL=
-APP_PUBLIC_URL=https://example.com
+PAGOU_CONFIRMATION_MODE=webhook      # webhook | polling
+APP_PUBLIC_URL=https://example.com   # só relevante se modo = webhook
 ```
 
 `config/services.php` — acrescentar:
 
 ```php
 'pagou' => [
-    'key'      => env('PAGOU_API_KEY'),
-    'env'      => env('PAGOU_ENV', 'sandbox'),
-    'base_url' => env('PAGOU_BASE_URL'),
+    'key' => env('PAGOU_API_KEY'),
 ],
 ```
 
@@ -110,19 +107,13 @@ use Illuminate\Support\Facades\Http;
 
 class PagouClient
 {
-    private const BASE_URL = [
-        'sandbox'    => 'https://api-sandbox.pagou.ai',
-        'production' => 'https://api.pagou.ai',
-    ];
+    // v3.0.0+ — apenas produção
+    private const BASE_URL = 'https://api.pagou.ai';
 
     public function __construct(
         private ?string $apiKey = null,
-        private ?string $env = null,
-        private ?string $baseUrl = null,
     ) {
-        $this->apiKey  ??= config('services.pagou.key');
-        $this->env     ??= config('services.pagou.env', 'sandbox');
-        $this->baseUrl ??= config('services.pagou.base_url') ?: self::BASE_URL[$this->env];
+        $this->apiKey ??= config('services.pagou.key');
 
         if (empty($this->apiKey)) {
             throw new \RuntimeException('PAGOU_API_KEY is not set');
@@ -134,14 +125,14 @@ class PagouClient
         return $this->handle(Http::withToken($this->apiKey)
             ->acceptJson()
             ->asJson()
-            ->post($this->baseUrl . $path, $body));
+            ->post(self::BASE_URL . $path, $body));
     }
 
     public function get(string $path): array
     {
         return $this->handle(Http::withToken($this->apiKey)
             ->acceptJson()
-            ->get($this->baseUrl . $path));
+            ->get(self::BASE_URL . $path));
     }
 
     private function handle(Response $res): array
@@ -468,8 +459,6 @@ Adicionar em `config/services.php`:
 'pagou' => [
     'key'            => env('PAGOU_API_KEY'),
     'webhook_secret' => env('PAGOU_WEBHOOK_SECRET'),
-    'env'            => env('PAGOU_ENV', 'sandbox'),
-    'base_url'       => env('PAGOU_BASE_URL'),
 ],
 ```
 

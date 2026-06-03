@@ -43,7 +43,7 @@ Leia, sem perguntar:
 - Convenção de testes do projeto
 - Padrão de organização (MVC, hexagonal, modules, etc.)
 
-**Critério de saída:** Você tem ≥ 90% do contexto. Os únicos buracos restantes são os 5 perguntáveis (PAGOU_API_KEY, env, URL pública, status internos, modo de confirmação).
+**Critério de saída:** Você tem ≥ 90% do contexto. Os únicos buracos restantes são os 4 perguntáveis (PAGOU_API_KEY, modo de confirmação, URL pública se webhook, status internos). Não perguntar ambiente — desde v3.0.0 a Skill chama sempre produção (`https://api.pagou.ai`).
 
 ---
 
@@ -61,7 +61,7 @@ Antes de **qualquer** modificação no projeto, gere `PAGOU_PIX_INTEGRATION_PLAN
 - Job de polling + reconciliação curta — só se modo = polling
 - Variáveis de ambiente novas
 
-Em seguida, **pergunte os 5 dados permitidos** usando `prompts/missing-data.md`, e solicite aprovação explícita:
+Em seguida, **pergunte os 4 dados permitidos** usando `prompts/missing-data.md`, e solicite aprovação explícita:
 
 > "Posso prosseguir com este plano? (sim/não/ajustar)"
 
@@ -81,9 +81,9 @@ Use o adapter de framework correspondente em `frameworks/`:
 
 Implemente nesta ordem:
 
-1. **Configuração** (env vars, config file — incluir `PAGOU_CONFIRMATION_MODE` com valor do utilizador)
+1. **Configuração** (env vars, config file — incluir `PAGOU_CONFIRMATION_MODE` com valor do utilizador; sem `PAGOU_ENV` nem `PAGOU_BASE_URL`)
 2. **Migração de DB** (tabela `pagou_pix_transactions` + tabela `pagou_webhook_events` para idempotência — esta última necessária em ambos os modos)
-3. **Cliente Pagou** (wrapper HTTP com auth, base URL por ambiente, tratamento de erros)
+3. **Cliente Pagou** (wrapper HTTP com auth e base URL **constante hardcoded** `https://api.pagou.ai`, tratamento de erros)
 4. **Serviço PIX** (criar cobrança, consultar status)
 5. **Endpoint público** (criar cobrança PIX para o frontend)
 6. **Endpoint de webhook** (`POST /webhooks/pagou`) — gerado em ambos os modos; em modo `polling` fica disponível mas o utilizador não regista no painel

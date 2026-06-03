@@ -11,7 +11,7 @@
   - Verificar que está agendado (via scheduler do framework: `vercel.json crons`, `php artisan schedule:list`, `wp cron event list`, etc.)
   - Cobertura: 100% das transações pending dentro da janela de 1h passam por este job
   - Limite máximo de execução: < 30s por iteração (não bloquear o scheduler)
-  - Teste manual: criar PIX em sandbox → não tocar no painel → aguardar 2 min → confirmar que pagamento manual no app do banco aparece como `paid` no sistema interno
+  - Teste manual: criar PIX via `tools/pagou-mock/` → mock fica em status pending → aguardar 2 min → simular pagamento no mock (curl ao endpoint de simulação) → confirmar que sistema interno passa a `paid` via poller
 
 - [ ] **`pagou:reconcile-late` corre a cada 15 min** (em vez de horária do modo webhook).
   - Janela: transações terminais criadas nos últimos 30 dias
