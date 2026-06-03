@@ -4,6 +4,35 @@ Todas as mudanças notáveis nesta Skill são documentadas aqui.
 
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e a versão segue [SemVer](https://semver.org/lang/pt-BR/).
 
+## [3.0.1] — 2026-06-03
+
+Fecha 3 gaps críticos identificados na comparação com a doc oficial da Pagou (`developer.pagou.ai`). PATCH — sem alteração de contrato nem novas dependências.
+
+### Adicionado
+
+- **Captura e log de `requestId`** em todos os 5 adapters de framework (Next.js, Laravel, WordPress, WooCommerce, Generic). O cliente HTTP gerado passa a ler `x-request-id` (ou `x-pagou-request-id`) da resposta da Pagou e a logar em toda chamada (`event: "pagou.api.call"`). O `requestId` é propagado em `PagouError`/`PagouException` para facilitar troubleshooting com o suporte oficial da Pagou.
+- **Nova secção "Tracing — `requestId`"** em `KNOWLEDGE.md` — regras de logging, headers a procurar, propagação em exceções.
+- **Novo item crítico** em `checklists/validation.md` validando que o cliente HTTP loga `requestId` quando devolvido.
+- **Aviso explícito de divergência com recomendação oficial Pagou** sempre que o utilizador escolhe modo `polling`. Aparece em 4 sítios:
+  - `prompts/missing-data.md` — bloco de aviso após a escolha
+  - `templates/PAGOU_PIX_INTEGRATION_PLAN.md` — aviso no plano gerado
+  - `templates/PAGOU_PIX_INTEGRATION_REPORT.md` — aviso no relatório final
+  - `templates/README_PAGOU_PIX.md` — aviso no guia operacional
+  - Texto cita literalmente a doc oficial: *"Use GET polling only for reconciliation, support, or recovery, never as the primary flow."* e lista trade-offs concretos (latência, custo de API, eventos tardios).
+- **Nota explícita sobre SDK `@pagouai/api-sdk`** em `KNOWLEDGE.md` — avisa que documentação oficial pode mostrar `environment: "sandbox"`, mas a Skill v3+ exige `"production"`. Inclui ponteiro para `tools/pagou-mock/` como alternativa para dev/CI.
+
+### Alterado
+
+- `frameworks/nextjs.md` — `PagouError` ganha campo `requestId?: string`; `pagouFetch` loga `pagou.api.call` com requestId.
+- `frameworks/laravel.md` — `PagouException` ganha campo `?string $requestId`; `handle()` loga `pagou.api.call`.
+- `frameworks/wordpress.md` — `Pagou_Pix_Client::request()` loga `pagou.api.call` e devolve `request_id` em erro.
+- `frameworks/woocommerce.md` — `Pagou_Pix_WC_Client::request()` idem.
+- `frameworks/generic.md` — pseudocódigo do cliente HTTP inclui captura de `requestId` e regra de logging.
+
+### Não alterado
+
+- Contrato de 4 perguntas, modos de confirmação webhook/polling, URL hardcoded em produção, anti-padrões, scoring, fluxo das 6 fases. Esta release é puramente aditiva.
+
 ## [3.0.0] — 2026-06-03
 
 Remove totalmente o suporte a sandbox. A Skill agora chama **apenas produção** (`https://api.pagou.ai`). Para dev/CI sem cobranças reais, `tools/pagou-mock/` (incluído no repo) é o caminho suportado.

@@ -73,6 +73,15 @@ Status: ✓ aplicada em {{ambiente}}.
 - [ ] Limitações conhecidas documentadas para a equipa (latência, custo de API, eventos tardios)
 - [ ] Plano para migrar para `webhook` quando volume justificar
 
+> ⚠️ **DIVERGÊNCIA com recomendação oficial da Pagou.** A doc oficial (`developer.pagou.ai`) afirma: *"Use GET polling only for reconciliation, support, or recovery, never as the primary flow."* Este projeto está conscientemente a operar contra a recomendação oficial em troca de simplicidade de setup. Trade-offs aceites:
+>
+> - Latência de confirmação ≈ 30s–1min (vs segundos em webhook)
+> - Custo de API maior (volume de GETs proporcional ao número de pedidos pending)
+> - Risco de perder eventos tardios (`refunded`, `chargedback`) se o job de reconciliação não correr na janela esperada
+> - Smoke test de produção: validar que `paid` chega ao sistema interno em menos de 2 min após pagamento real
+>
+> **Quando reconsiderar webhook:** volume > 100 pedidos/dia, ou domínio com chargeback/refund relevante (assinaturas, marketplace, serviços com SLA).
+
 ## Evidências por categoria
 
 ### Configuração

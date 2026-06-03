@@ -51,6 +51,10 @@ Apontar o cliente HTTP do projeto para `http://localhost:8787` (ou porta configu
 
 #### Se modo = `polling`
 
+> ⚠️ **AVISO — divergência com recomendação oficial da Pagou.** A doc oficial (`developer.pagou.ai`) afirma: *"Use GET polling only for reconciliation, support, or recovery, never as the primary flow."*
+>
+> Este modo usa GET como fluxo principal — caminho conscientemente diferente do recomendado. Aceitar a trade-off: latência maior (30s–1min), custo de API mais alto, e risco de perder eventos tardios (refunded, chargedback) se o job de reconciliação falhar. Adequado para MVP / volume baixo / sem URL pública. Para integrações de produção sérias, **considera migrar para `webhook`** — o endpoint já está gerado pela Skill, só precisas de registar no painel.
+
 Sem painel. Sem secret. A confirmação acontece via:
 
 1. **Background poller** (`pagou:poll`) que corre a cada minuto, consulta `GET /v2/transactions/{id}` para todas as transações pending na última hora, e propaga status terminais (`paid`, `expired`, `canceled`, `refused`) ao pedido interno.

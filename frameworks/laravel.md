@@ -137,11 +137,21 @@ class PagouClient
 
     private function handle(Response $res): array
     {
+        // v3.0.1+ — capturar requestId para tracing (recomendação Pagou)
+        $requestId = $res->header('x-request-id') ?: $res->header('x-pagou-request-id') ?: null;
+        if ($requestId) {
+            logger()->info('pagou.api.call', [
+                'status' => $res->status(),
+                'requestId' => $requestId,
+            ]);
+        }
+
         if (! $res->successful()) {
             throw new PagouException(
                 "Pagou API error {$res->status()}",
                 $res->status(),
                 $res->json() ?? [],
+                $requestId,
             );
         }
         return $res->json() ?? [];
@@ -158,8 +168,12 @@ namespace App\Services\Pagou;
 
 class PagouException extends \RuntimeException
 {
-    public function __construct(string $message, public int $status, public array $body = [])
-    {
+    public function __construct(
+        string $message,
+        public int $status,
+        public array $body = [],
+        public ?string $requestId = null,  // v3.0.1+ — facilita troubleshooting com suporte Pagou
+    ) {
         parent::__construct($message);
     }
 }

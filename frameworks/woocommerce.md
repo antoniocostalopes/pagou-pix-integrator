@@ -246,7 +246,18 @@ class Pagou_Pix_WC_Client
         $code = wp_remote_retrieve_response_code($resp);
         $data = json_decode(wp_remote_retrieve_body($resp), true) ?: [];
 
-        if ($code >= 400) return ['error' => "pagou_{$code}", 'body' => $data];
+        // v3.0.1+ — capturar requestId para tracing (recomendação Pagou)
+        $headers = wp_remote_retrieve_headers($resp);
+        $request_id = $headers['x-request-id'] ?? ($headers['x-pagou-request-id'] ?? null);
+        if ($request_id) {
+            error_log(wp_json_encode([
+                'event' => 'pagou.api.call',
+                'status' => $code,
+                'requestId' => $request_id,
+            ]));
+        }
+
+        if ($code >= 400) return ['error' => "pagou_{$code}", 'body' => $data, 'request_id' => $request_id];
         return $data;
     }
 }

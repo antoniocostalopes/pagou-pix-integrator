@@ -13,6 +13,19 @@ Esta é a **única fonte de verdade** desta Skill sobre a API Pagou. Antes de ge
 
 > **A Skill v3.0.0+ só fala com produção.** Não há sandbox configurável. Para dev/CI local sem cobranças reais, usar `tools/pagou-mock/` incluído no repo da Skill (servidor Node que simula a API v2 com webhooks HMAC válidos).
 
+## Tracing — `requestId`
+
+A Pagou devolve um header de identificação de pedido na resposta de cada chamada — útil para troubleshooting e correlação com logs do suporte oficial.
+
+**Header a procurar:** `x-request-id` ou `x-pagou-request-id` (qual estiver disponível na resposta).
+
+**Regras:**
+
+- Logar o `requestId` em toda chamada bem ou mal sucedida (`event: "pagou.api.call"` + `status` + `requestId`).
+- Propagar o `requestId` na exceção do cliente HTTP (`PagouError.requestId` em TS, `PagouException::$requestId` em PHP) — facilita escalar incidentes para o suporte.
+- **Não** logar payload nem chave de API junto com o requestId — só metadados (path, status, requestId).
+- Cobertura: incluir no checklist `validation.md` que toda chamada HTTP loga requestId quando devolvido.
+
 ## Autenticação
 
 Três métodos suportados — **escolha um** e mantenha consistente:
@@ -318,7 +331,9 @@ import { Client } from "@pagouai/api-sdk";
 
 const client = new Client({
   apiKey: process.env.PAGOU_API_KEY!,
-  // Skill v3+: SDK aponta sempre para produção
+  // Skill v3+: SDK aponta SEMPRE para produção.
+  // O SDK aceita "sandbox" mas a Skill não suporta esse modo — para dev/CI sem cobranças reais,
+  // ver `tools/pagou-mock/` no repo da Skill (servidor Node que simula a API v2).
   environment: "production",
 });
 
@@ -329,6 +344,8 @@ const tx = await client.transactions.create({
   method: "pix",
 });
 ```
+
+⚠️ **Atenção ao copiar snippets da documentação oficial da Pagou.** Os exemplos em `https://developer.pagou.ai` podem mostrar `environment: "sandbox"`. **Na Skill v3+, sempre substituir por `"production"`.** Se precisas de testar sem cobranças reais, aponta o SDK para `tools/pagou-mock/` localmente (via base URL override do SDK, se disponível) ou usa o wrapper HTTP customizado dos adapters da Skill, que tem a URL hardcoded.
 
 Use o SDK quando o projeto for Node/TS. Para outras linguagens, faça wrapper HTTP simples.
 

@@ -105,6 +105,7 @@ export class PagouError extends Error {
     message: string,
     public status: number,
     public body: unknown,
+    public requestId?: string,  // v3.0.1+ — facilita troubleshooting com suporte Pagou
   ) {
     super(message);
   }
@@ -124,6 +125,17 @@ export async function pagouFetch<T>(
     },
   });
 
+  // v3.0.1+ — capturar requestId para tracing (recomendação da doc oficial Pagou)
+  const requestId = res.headers.get("x-request-id") || res.headers.get("x-pagou-request-id") || undefined;
+  if (requestId) {
+    console.log(JSON.stringify({
+      event: "pagou.api.call",
+      path,
+      status: res.status,
+      requestId,
+    }));
+  }
+
   const text = await res.text();
   const body = text ? safeJson(text) : null;
 
@@ -132,6 +144,7 @@ export async function pagouFetch<T>(
       `Pagou API error ${res.status} at ${path}`,
       res.status,
       body,
+      requestId,
     );
   }
 

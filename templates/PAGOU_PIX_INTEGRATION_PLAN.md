@@ -90,6 +90,8 @@ Eventos: transaction.created, transaction.pending, transaction.paid,
 
 **Se modo = `polling`:** ignorar esta secção. O endpoint `/api/webhooks/pagou` continua a ser gerado mas o utilizador não precisa de registar nada no painel. O caminho de confirmação é polling backend (ver secção 7.b).
 
+> ⚠️ **DIVERGÊNCIA com recomendação oficial da Pagou.** A doc oficial (`developer.pagou.ai`) diz: *"Use GET polling only for reconciliation, support, or recovery, never as the primary flow."* Modo `polling` foi escolhido conscientemente — aceita a trade-off de latência maior, custo de API maior, e risco de eventos tardios perdidos. Antes de escalar para produção com volume real, considera migrar para `webhook` (o endpoint já está gerado, só precisas de registar no painel e definir `PAGOU_WEBHOOK_SECRET`).
+
 ## 7.b Background poller (só em modo polling)
 
 ```

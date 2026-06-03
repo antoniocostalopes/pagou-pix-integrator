@@ -15,6 +15,12 @@
 
 - [ ] **Teste e2e do fluxo feliz passa.** Create → webhook paid → order pago.
 
+- [ ] **Cliente HTTP loga `requestId` quando devolvido pela Pagou.** (v3.0.1+)
+  - Headers verificados: `x-request-id` e `x-pagou-request-id`
+  - Loga `{ event: "pagou.api.call", path, status, requestId }` em chamadas bem e mal sucedidas
+  - Em erro, propaga no `PagouError.requestId` / `PagouException::$requestId` para facilitar troubleshooting com suporte oficial
+  - **Não** loga payload nem chave de API junto
+
 ## Importantes
 
 - [ ] **Cobertura de testes ≥ 80%** nas linhas/branches do código novo. Comando padrão do framework:

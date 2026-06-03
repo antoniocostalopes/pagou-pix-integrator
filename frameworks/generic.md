@@ -27,13 +27,19 @@ Contrato mínimo:
 
 ```pseudo
 function pagou_request(method, path, body?) -> json
-  url      = base_url + path
+  url      = "https://api.pagou.ai" + path  # v3.0.0+ constante hardcoded
   headers  = { Authorization: "Bearer " + api_key,
                Content-Type: "application/json",
                Accept:       "application/json" }
   response = HTTP.request(method, url, headers, body)
+
+  # v3.0.1+ — capturar requestId para tracing (recomendação Pagou)
+  request_id = response.headers["x-request-id"] or response.headers["x-pagou-request-id"]
+  if request_id:
+      log_info({ event: "pagou.api.call", path, status: response.status, requestId: request_id })
+
   if response.status >= 400:
-      raise PagouError(response.status, response.body)
+      raise PagouError(response.status, response.body, requestId=request_id)
   return parse_json(response.body)
 ```
 
@@ -42,6 +48,7 @@ Sempre:
 - Timeout ≤ 15 segundos
 - Retornar resposta crua quando útil (para gravar `raw_response`)
 - Nunca logar `Authorization` header
+- **Logar `requestId`** quando devolvido pela Pagou — facilita troubleshooting com o suporte oficial. Headers a procurar: `x-request-id` ou `x-pagou-request-id` (qual estiver disponível na resposta)
 
 ### Tabelas (qualquer banco SQL)
 

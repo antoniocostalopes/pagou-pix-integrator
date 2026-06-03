@@ -55,6 +55,19 @@ A Skill **só** pode pedir:
 - Salvar em `PAGOU_CONFIRMATION_MODE` (`webhook` | `polling`)
 - Se escolher `polling`, **pular a pergunta da URL pública** (não é necessária — não há nada para registar na Pagou)
 - Se escolher `polling`, lembrar o utilizador no relatório final que pode mudar para webhook depois (o endpoint é sempre gerado em ambos os modos)
+- **Se escolher `polling`, mostrar AVISO DE DIVERGÊNCIA** com a recomendação oficial da Pagou:
+
+  > ⚠️ **Aviso:** a documentação oficial da Pagou (`developer.pagou.ai`) recomenda explicitamente:
+  > *"Use GET polling only for reconciliation, support, or recovery, never as the primary flow."*
+  >
+  > Ao escolher modo `polling`, vais usar GET como fluxo principal — o que **diverge da recomendação oficial**. A Skill suporta este modo como opt-out consciente (útil para MVP / volume baixo / sem URL pública / dev local), mas tu tens de aceitar as trade-offs:
+  >
+  > - Latência de confirmação ≈ 30s–1min (vs segundos em webhook)
+  > - Custo de API maior (mais requests ao GET)
+  > - Risco de perder eventos tardios (`refunded`, `chargedback`) se o job de reconciliação não correr
+  > - Não é o caminho recomendado pela Pagou para integrações de produção sérias
+  >
+  > Continuas com `polling`? (sim / mudar para webhook)
 
 ### Sobre URL pública
 
