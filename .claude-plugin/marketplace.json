@@ -13,7 +13,7 @@
       "name": "pagou-pix-integrator",
       "source": "./",
       "description": "Skill autônoma para integrar PIX via Pagou.ai em qualquer projeto existente — Next.js, Laravel, WordPress, WooCommerce ou genérico. Descoberta automática, aprovação humana, testes, validação e score técnico 0-100.",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "author": {
         "name": "antoniocostalopes",
         "url": "https://github.com/antoniocostalopes"

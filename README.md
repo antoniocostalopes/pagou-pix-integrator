@@ -4,7 +4,7 @@
 
 ### Plugin para Claude Code que integra PIX via Pagou.ai em qualquer projeto existente — com descoberta automática, aprovação humana, testes, validação e score técnico.
 
-[![Version](https://img.shields.io/badge/version-1.2.1-blue.svg?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.2.2-blue.svg?style=for-the-badge)](./CHANGELOG.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-D97706?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.com/claude-code)
 [![PT-BR](https://img.shields.io/badge/lang-PT--BR-009C3B?style=for-the-badge)](#)
 
@@ -172,19 +172,27 @@ São 2 comandos porque o sistema separa **fonte** (marketplace) de **consumo** (
 
 ## 💡 Uso
 
-Dentro de qualquer projeto onde queres adicionar PIX, no Claude Code:
+### Caminho canónico — slash command
+
+Dentro de qualquer projeto onde queres adicionar PIX, no Claude Code escreve:
 
 ```text
 /pagou-pix-integrator
 ```
 
-Ou simplesmente pede em linguagem natural:
+> 💡 **Dica de descoberta:** escreve apenas `/p` e usa o autocomplete do Claude Code. O slash command é o entry point oficial — explícito, sem ambiguidade, e aparece no catálogo de skills disponíveis.
+
+### Alternativa — linguagem natural
+
+Se preferires não memorizar o nome do comando, a Skill também é acionada por frases naturais que mencionem a intenção:
 
 > _"Integra PIX via Pagou.ai neste projeto."_
 >
 > _"Adiciona um webhook da Pagou e implementa a cobrança PIX."_
+>
+> _"Implementa pagamento PIX aqui."_
 
-A Skill cuida do resto. Só precisas de **4 informações** — tudo o resto é descoberto:
+Em ambos os casos a Skill cuida do resto. Só precisas de **4 informações** — tudo o resto é descoberto:
 
 1. 🔑 **`PAGOU_API_KEY`** — chave da tua conta Pagou
 2. 🌐 **Ambiente** — sandbox ou produção
@@ -389,7 +397,7 @@ Em escopo: forjar webhooks, vazar segredos, bypass do Approval Gate, SQL injecti
 
 ## 📅 Changelog
 
-Versão atual: **`1.2.0`** — release de hardening para produção (HMAC + refund/cancel + observabilidade + repo hygiene + DX).
+Versão atual: **`1.2.2`** — destaca o slash command `/pagou-pix-integrator` como caminho canónico de invocação e clarifica a descoberta da Skill no README.
 
 Histórico completo em [`CHANGELOG.md`](./CHANGELOG.md).
 

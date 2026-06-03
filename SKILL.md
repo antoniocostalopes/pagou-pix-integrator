@@ -1,6 +1,6 @@
 ---
 name: pagou-pix-integrator
-description: Analisa projetos existentes (Next.js, Laravel, WordPress, WooCommerce ou genéricos) e implementa uma integração PIX completa via Pagou.ai — cliente, serviço, endpoint, webhook com deduplicação por event_id, reconciliação, testes e relatório com score. Use quando o utilizador pedir para "integrar PIX", "adicionar Pagou", "implementar pagamento PIX", "webhook Pagou" ou similar num projeto existente.
+description: Analisa projetos existentes (Next.js, Laravel, WordPress, WooCommerce ou genéricos) e implementa uma integração PIX completa via Pagou.ai — cliente, serviço, endpoint, webhook com deduplicação por event_id, reconciliação, testes e relatório com score. Invocação canónica via slash command `/pagou-pix-integrator`. Também responde quando o utilizador pedir em linguagem natural para "integrar PIX", "adicionar Pagou", "implementar pagamento PIX", "webhook Pagou" ou similar num projeto existente.
 ---
 
 # Pagou PIX Integrator
@@ -9,7 +9,7 @@ Skill autônoma para integração PIX em projetos existentes utilizando a plataf
 
 ## Versão
 
-1.2.1
+1.2.2
 
 ## Escopo
 

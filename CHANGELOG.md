@@ -4,7 +4,21 @@ Todas as mudanças notáveis nesta Skill são documentadas aqui.
 
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e a versão segue [SemVer](https://semver.org/lang/pt-BR/).
 
-## [1.2.1] — 2026-06-02
+## [1.2.2] — 2026-06-03
+
+Release de descoberta. Sem alteração funcional — só clarifica como o utilizador final invoca a Skill.
+
+### Alterado
+
+- **`SKILL.md`** — campo `description` no frontmatter passa a mencionar explicitamente o slash command `/pagou-pix-integrator` como invocação canónica, mantendo as frases em linguagem natural como caminho alternativo. Aumenta a discoverability quando a Skill aparece em catálogos do Claude Code.
+- **`README.md` — secção "Uso"** reestruturada com dois subtítulos:
+  - **Caminho canónico — slash command** — promove `/pagou-pix-integrator` como entry point oficial, com dica de autocomplete (`/p` + Tab).
+  - **Alternativa — linguagem natural** — preserva as frases naturais, agora claramente posicionadas como fallback amigável.
+- **`README.md` — secção "Changelog"** corrige a versão mencionada (estava `1.2.0` mesmo após o release `1.2.1`).
+
+### Não alterado
+
+- Fluxo de 6 fases, anti-padrões, contrato com o utilizador, frameworks suportados, score. Nada disto muda — esta release é puramente documental e de metadados.
 
 ### Removido
 
